@@ -1,0 +1,97 @@
+{
+  "projectType": "frontend",
+  "projectName": "Firedancer Frontend",
+  "projectDescription": "Real-time monitoring and visualization dashboard for Firedancer and Frankendancer Solana validators",
+  "theme": "aspen",
+  "primaryColor": "#242b2c",
+  "lightColor": "#040404",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/overview",
+              "features/gossip",
+              "features/leader-schedule",
+              "features/slot-details",
+              "features/startup-progress"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/components",
+              "architecture/state-management",
+              "architecture/websocket-integration"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/setup",
+              "development/building",
+              "development/testing",
+              "development/contributing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core",
+            "pages": [
+              "api/components",
+              "api/hooks",
+              "api/utilities"
+            ]
+          },
+          {
+            "group": "Data",
+            "pages": [
+              "api/entities",
+              "api/websocket-api",
+              "api/state-atoms"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Real-time validator performance monitoring",
+    "Live network metrics and tile performance visualization",
+    "Gossip network peer tracking and visualization",
+    "Leader schedule display with slot rankings",
+    "Detailed slot performance analysis and transaction tracking",
+    "Startup progress monitoring with visual indicators",
+    "WebSocket-based real-time data streaming",
+    "Support for both Firedancer and Frankendancer clients"
+  ],
+  "publicApiSurface": [
+    "ConnectionProvider - WebSocket connection management",
+    "useSlotInfo - Hook for slot data retrieval",
+    "usePeerInfo - Hook for peer information",
+    "useSlotRankings - Hook for slot performance rankings",
+    "useLeaderSchedule - Hook for leader schedule data",
+    "StatusIcon - Component for validator status display",
+    "SlotTimeline - Component for slot timeline visualization",
+    "LiveNetworkMetrics - Component for network metrics display",
+    "LiveTileMetrics - Component for tile performance metrics",
+    "GossipView - Component for gossip network visualization"
+  ]
+}
