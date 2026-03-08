@@ -421,3 +421,37 @@ import { useNavigateLeaderSlot } from "./hooks/useNavigateLeaderSlot";
 const navigateToLeaderSlot = useNavigateLeaderSlot();
 navigateToLeaderSlot(12345);
 ```
+
+## useIsLeaderGroupSkipped
+
+Checks if any slot in a leader group (4 consecutive slots) has been skipped.
+
+**Parameters**
+
+<ParamField path="slot" type="number" required>
+  Slot number to check the leader group for
+</ParamField>
+
+**Returns**
+
+`boolean` - True if any slot in the leader group was skipped
+
+**Usage**
+
+```tsx
+import { useIsLeaderGroupSkipped } from "./hooks/useIsLeaderGroupSkipped";
+
+function LeaderGroupStatus({ slot }: { slot: number }) {
+  const isSkipped = useIsLeaderGroupSkipped(slot);
+  
+  return (
+    <div>
+      Leader group: {isSkipped ? "Has skipped slots" : "All slots completed"}
+    </div>
+  );
+}
+```
+
+<Note>
+This hook assumes that slot status data has already been cached by other components. It does not query for slot status on its own.
+</Note>

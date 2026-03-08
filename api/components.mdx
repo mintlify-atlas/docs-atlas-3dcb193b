@@ -379,3 +379,187 @@ function SettingsPanel() {
   );
 }
 ```
+
+## ArrowDropdown
+
+A popover dropdown component that shows an arrow icon indicating open/closed state.
+
+**Props**
+
+<ParamField path="children" type="ReactNode" required>
+  Content to display in the dropdown popover
+</ParamField>
+
+**Usage**
+
+```tsx
+import ArrowDropdown from "./components/ArrowDropdown";
+
+function FilterMenu() {
+  return (
+    <ArrowDropdown>
+      <div>Filter options here</div>
+    </ArrowDropdown>
+  );
+}
+```
+
+## PopoverDropdown
+
+A wrapper around Radix UI Popover that provides consistent popover behavior.
+
+**Props**
+
+<ParamField path="children" type="ReactNode" required>
+  Trigger element for the popover
+</ParamField>
+
+<ParamField path="content" type="ReactNode" required>
+  Content to display in the popover
+</ParamField>
+
+<ParamField path="isOpen" type="boolean">
+  Controlled open state
+</ParamField>
+
+<ParamField path="onOpenChange" type="(isOpen: boolean) => void">
+  Callback when open state changes
+</ParamField>
+
+<ParamField path="align" type="'start' | 'center' | 'end'">
+  Alignment of the popover content
+</ParamField>
+
+**Usage**
+
+```tsx
+import PopoverDropdown from "./components/PopoverDropdown";
+
+function ActionMenu() {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <PopoverDropdown
+      content={<div>Menu content</div>}
+      isOpen={isOpen}
+      onOpenChange={setIsOpen}
+      align="start"
+    >
+      <button>Open Menu</button>
+    </PopoverDropdown>
+  );
+}
+```
+
+## TimePopoverDropdown
+
+Displays time information in multiple formats (local, UTC, relative, timestamp) in a popover.
+
+**Props**
+
+<ParamField path="children" type="ReactNode" required>
+  Display element (typically the formatted time)
+</ParamField>
+
+<ParamField path="nanoTs" type="bigint" required>
+  Timestamp in nanoseconds
+</ParamField>
+
+**Usage**
+
+```tsx
+import { TimePopoverDropdown } from "./components/TimePopoverDropdown";
+
+function TimestampDisplay({ nanoTs }: { nanoTs: bigint }) {
+  return (
+    <TimePopoverDropdown nanoTs={nanoTs}>
+      {formatTimeNanos(nanoTs).inNanos}
+    </TimePopoverDropdown>
+  );
+}
+```
+
+## SlotClient
+
+Displays the validator client logo for a given slot (Firedancer, Frankendancer, or Anza/Agave).
+
+**Props**
+
+<ParamField path="slot" type="number" required>
+  Slot number to display client for
+</ParamField>
+
+<ParamField path="size" type="'small' | 'large'" required>
+  Icon size
+</ParamField>
+
+**Usage**
+
+```tsx
+import SlotClient from "./components/SlotClient";
+
+function SlotCard({ slot }: { slot: number }) {
+  return (
+    <div>
+      <SlotClient slot={slot} size="small" />
+      <span>Slot {slot}</span>
+    </div>
+  );
+}
+```
+
+## RowSeparator
+
+A horizontal separator component with configurable vertical margins.
+
+**Props**
+
+<ParamField path="my" type="string">
+  Vertical margin (both top and bottom). Defaults to "1"
+</ParamField>
+
+<ParamField path="mb" type="string">
+  Bottom margin override
+</ParamField>
+
+**Usage**
+
+```tsx
+import RowSeparator from "./components/RowSeparator";
+
+function SectionDivider() {
+  return <RowSeparator my="3" />;
+}
+```
+
+## MeasureOffscreen
+
+Renders children offscreen to measure their dimensions without affecting layout.
+
+**Props**
+
+<ParamField path="children" type="ReactNode" required>
+  Elements to measure
+</ParamField>
+
+<ParamField path="onMeasured" type="(measureRect: UseMeasureRect) => void" required>
+  Callback with measured dimensions
+</ParamField>
+
+**Usage**
+
+```tsx
+import MeasureOffscreen from "./components/MeasureOffscreen";
+
+function DynamicLayout() {
+  const handleMeasured = (rect) => {
+    console.log("Width:", rect.width, "Height:", rect.height);
+  };
+  
+  return (
+    <MeasureOffscreen onMeasured={handleMeasured}>
+      <div>Content to measure</div>
+    </MeasureOffscreen>
+  );
+}
+```
