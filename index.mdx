@@ -1,97 +1,88 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Firedancer Frontend"
+description: "Real-time monitoring and visualization dashboard for Firedancer and Frankendancer Solana validators"
 ---
 
-## Setting up
+<div style={{
+  background: 'linear-gradient(135deg, #0a0e1a 0%, #242b2c 100%)',
+  borderRadius: '12px',
+  padding: '3rem 2rem',
+  marginBottom: '2rem',
+  border: '1px solid rgba(106, 90, 205, 0.3)'
+}}>
+  <h1 style={{
+    fontSize: '3rem',
+    fontWeight: '700',
+    marginBottom: '1rem',
+    color: '#ffffff'
+  }}>
+    Monitor Your Validator in Real-Time
+  </h1>
+  <p style={{
+    fontSize: '1.25rem',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: '2rem',
+    maxWidth: '700px'
+  }}>
+    A powerful web-based dashboard for tracking performance, network metrics, and slot progression for Firedancer and Frankendancer validators.
+  </p>
+</div>
 
-Get your documentation site up and running in minutes.
+## Get Started
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+Set up the Firedancer Frontend dashboard in minutes and start monitoring your validator.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install dependencies and configure your environment
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get your dashboard running locally in under 5 minutes
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Key Features
 
-Everything you need to create world-class documentation.
+Everything you need to monitor and optimize your Solana validator performance.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={2}>
+  <Card title="Overview Dashboard" icon="chart-line" href="/features/overview">
+    Live network metrics, slot timeline, and transaction tracking
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Gossip Network" icon="network-wired" href="/features/gossip">
+    Visualize peer connections and network topology
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Leader Schedule" icon="calendar" href="/features/leader-schedule">
+    Track upcoming leader slots and performance rankings
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Slot Details" icon="magnifying-glass" href="/features/slot-details">
+    Deep dive into slot performance and transaction analysis
   </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+## Architecture
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
+Learn how the Firedancer Frontend is built and how to extend it.
+
+<CardGroup cols={2}>
+  <Card title="Components" icon="puzzle-piece" href="/architecture/components">
+    Explore the React component architecture
+  </Card>
+  <Card title="State Management" icon="database" href="/architecture/state-management">
+    Understand Jotai atoms and state flow
+  </Card>
+  <Card title="WebSocket Integration" icon="plug" href="/architecture/websocket-integration">
+    Real-time data streaming architecture
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/components">
+    Complete API documentation for components and hooks
+  </Card>
+</CardGroup>
+
+## Development
+
+Contribute to the project and customize the dashboard for your needs.
+
+<Card title="Development Guide" icon="hammer" href="/development/setup" horizontal>
+  Learn how to build, test, and contribute to the Firedancer Frontend
 </Card>

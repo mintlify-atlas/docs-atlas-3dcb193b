@@ -1,0 +1,460 @@
+---
+title: Startup Progress
+description: Monitor validator initialization, snapshot loading, and catchup progress during startup
+---
+
+The Startup Progress feature provides real-time monitoring of your validator's initialization sequence, from gossip joining through snapshot loading and network catchup. This overlay appears automatically during validator startup and disappears once the validator is fully operational.
+
+## Overview
+
+The Startup Progress component (`src/features/StartupProgress/index.tsx`) acts as a wrapper that displays progress information and optionally blurs the main dashboard:
+
+```tsx
+export default function StartupProgress({ children }: PropsWithChildren) {
+  const showStartupProgress = useAtomValue(showStartupProgressAtom);
+  const client = useAtomValue(clientAtom);
+  if (!client) return null;
+
+  return client === ClientEnum.Firedancer ? (
+    <>
+      <FiredancerBody />
+      <div>{children}</div>
+    </>
+  ) : (
+    <>
+      <Body />
+      <div
+        className={clsx(styles.container, {
+          [styles.blur]: showStartupProgress,
+        })}
+      >
+        {children}
+      </div>
+    </>
+  );
+}
+```
+
+## Client-Specific Implementations
+
+### Firedancer Startup
+
+Firedancer validators display a comprehensive startup screen with detailed phase tracking:
+
+```tsx src/features/StartupProgress/Firedancer/Body.tsx
+export default function Body() {
+  const setShowStartupProgress = useSetAtom(showStartupProgressAtom);
+  const phase = useAtomValue(bootProgressPhaseAtom);
+
+  // Automatically close when running
+  useEffect(() => {
+    setShowStartupProgress(phase !== "running");
+  }, [setShowStartupProgress, phase]);
+
+  return (
+    <>
+      {phase && <BootProgressContent phase={phase} />}
+      <Logo />
+    </>
+  );
+}
+```
+
+### Frankendancer Startup
+
+Frankendancer uses a simplified startup display without the detailed phase tracking available in Firedancer.
+
+## Boot Phases
+
+The startup sequence progresses through several distinct phases:
+
+```tsx
+export enum BootPhaseEnum {
+  joining_gossip = "joining_gossip",
+  loading_full_snapshot = "loading_full_snapshot",
+  loading_incremental_snapshot = "loading_incremental_snapshot",
+  catching_up = "catching_up",
+  running = "running",
+}
+```
+
+### Phase 1: Joining Gossip
+
+Initial network connection and peer discovery:
+
+- Connecting to gossip network
+- Discovering validators
+- Establishing peer connections
+- Retrieving network metadata
+
+<Frame>
+  <img src="/images/startup-gossip.png" alt="Joining gossip phase" />
+</Frame>
+
+**Typical Duration**: 5-15 seconds
+
+### Phase 2: Loading Full Snapshot
+
+Downloading and loading the full account state snapshot:
+
+```tsx src/features/StartupProgress/Firedancer/Snapshot.tsx
+// Displays:
+// - Download progress percentage
+// - Download speed (MB/s)
+// - Estimated time remaining
+// - Snapshot slot number
+// - Snapshot size
+// - Source validator
+```
+
+<Frame>
+  <img src="/images/startup-full-snapshot.png" alt="Loading full snapshot" />
+</Frame>
+
+**Typical Duration**: 2-10 minutes (depends on network speed and snapshot size)
+
+#### Progress Indicators
+
+- **Download Progress**: Bar showing percentage downloaded
+- **Verification Progress**: Hash verification of downloaded data
+- **Extraction Progress**: Unpacking snapshot archive
+- **Loading Progress**: Loading accounts into memory
+
+### Phase 3: Loading Incremental Snapshot
+
+Downloading and applying incremental snapshot updates:
+
+```tsx src/features/StartupProgress/Firedancer/Snapshot.tsx
+// Displays:
+// - Incremental snapshot slot range
+// - Number of account updates
+// - Application progress
+// - Verification status
+```
+
+<Frame>
+  <img src="/images/startup-incr-snapshot.png" alt="Loading incremental snapshot" />
+</Frame>
+
+**Typical Duration**: 30 seconds - 3 minutes
+
+#### Incremental Snapshot Details
+
+- **Slot Range**: Start and end slots for the incremental update
+- **Account Modifications**: Count of changed accounts
+- **Deletions**: Count of deleted accounts
+- **Application Rate**: Accounts processed per second
+
+### Phase 4: Catching Up
+
+Replaying recent blocks to reach network tip:
+
+```tsx src/features/StartupProgress/Firedancer/CatchingUp.tsx
+// Displays:
+// - Current replay slot
+// - Target slot (network tip)
+// - Slots remaining
+// - Replay rate (slots/sec)
+// - Estimated completion time
+// - Recent slot performance
+```
+
+<Frame>
+  <img src="/images/startup-catchup.png" alt="Catching up phase" />
+</Frame>
+
+**Typical Duration**: 1-5 minutes (depends on how far behind)
+
+#### Catchup Metrics
+
+| Metric | Description |
+|--------|-------------|
+| **Current Slot** | Slot currently being replayed |
+| **Target Slot** | Latest slot on the network |
+| **Slots Behind** | Distance to network tip |
+| **Replay Rate** | Average slots processed per second |
+| **ETA** | Estimated time to catch up |
+| **Block Processing** | Time per block |
+
+#### Replay Performance
+
+The catchup screen shows real-time performance metrics:
+
+```tsx
+function CatchupMetrics() {
+  const replaySlot = useAtomValue(replaySlotAtom);
+  const targetSlot = useAtomValue(networkSlotAtom);
+  const slotsBehind = targetSlot - replaySlot;
+  
+  const replayRate = useReplayRate(); // slots per second
+  const eta = slotsBehind / replayRate;
+  
+  return (
+    <Flex direction="column" gap="2">
+      <Stat label="Slots Behind" value={slotsBehind.toLocaleString()} />
+      <Stat label="Replay Rate" value={`${replayRate.toFixed(1)} slots/s`} />
+      <Stat label="ETA" value={formatDuration(eta)} />
+    </Flex>
+  );
+}
+```
+
+### Phase 5: Running
+
+Validator is fully operational:
+
+- Startup progress automatically hides
+- Main dashboard becomes active
+- Real-time monitoring begins
+
+## Visual Design
+
+The startup screen uses phase-specific styling:
+
+```tsx
+const classNames: { [phase in BootPhase]?: string } = {
+  [BootPhaseEnum.joining_gossip]: styles.gossip,
+  [BootPhaseEnum.loading_full_snapshot]: styles.fullSnapshot,
+  [BootPhaseEnum.loading_incremental_snapshot]: styles.incrSnapshot,
+  [BootPhaseEnum.catching_up]: styles.catchingUp,
+};
+```
+
+Each phase has distinct colors and animations to provide visual feedback on progress.
+
+## Startup Progress Container
+
+The container component manages the startup overlay:
+
+```tsx
+function BootProgressContent({ phase }: BootProgressContentProps) {
+  const setBootProgressContainerEl = useSetAtom(bootProgressContainerElAtom);
+  const showStartupProgress = useAtomValue(showStartupProgressAtom);
+  const isStartupProgressExpanded = useAtomValue(isStartupProgressExpandedAtom);
+
+  const phaseClass = phase ? classNames[phase] : "";
+  const isNarrow = useMedia("(max-width: 750px)");
+
+  return (
+    <Box
+      ref={(el: HTMLDivElement) => setBootProgressContainerEl(el)}
+      overflowY="auto"
+      className={clsx(styles.container, phaseClass, {
+        [styles.collapsed]: !showStartupProgress || !isStartupProgressExpanded,
+      })}
+    >
+      <Header isStartup />
+      
+      <Flex
+        direction="column"
+        width="100%"
+        maxWidth={appMaxWidth}
+        mx="auto"
+        px={isNarrow ? "20px" : "89px"}
+      >
+        {(phase === BootPhaseEnum.loading_full_snapshot ||
+          phase === BootPhaseEnum.loading_incremental_snapshot) && <Snapshot />}
+        {phase === BootPhaseEnum.catching_up && <CatchingUp />}
+      </Flex>
+    </Box>
+  );
+}
+```
+
+## Expandable/Collapsible
+
+The startup screen can be collapsed to view the underlying dashboard:
+
+- Click the minimize button to collapse
+- Startup progress continues in background
+- Main dashboard is still blurred during startup
+- Click to re-expand and view detailed progress
+
+## Responsive Design
+
+The startup screen adapts to different screen sizes:
+
+```tsx
+const isNarrow = useMedia("(max-width: 750px)");
+
+// Adjust padding for mobile
+px={isNarrow ? "20px" : "89px"}
+```
+
+- **Desktop**: Full details with charts and metrics
+- **Tablet**: Condensed layout with essential information
+- **Mobile**: Minimal UI with primary progress indicator
+
+## Automatic State Management
+
+The startup progress state is managed automatically:
+
+```tsx
+const showStartupProgressAtom = atom((get) => {
+  const phase = get(bootProgressPhaseAtom);
+  return phase !== undefined && phase !== "running";
+});
+```
+
+No manual intervention required - the overlay appears and disappears based on validator state.
+
+## Progress Persistence
+
+If you refresh the page during startup:
+
+- Progress state is retrieved from validator
+- Display resumes at current phase
+- No data is lost
+- Estimates recalculate based on current position
+
+## Snapshot Sources
+
+The snapshot loading phase displays source information:
+
+```tsx
+function SnapshotSource() {
+  const snapshotSource = useAtomValue(snapshotSourceAtom);
+  
+  return (
+    <Flex gap="2" align="center">
+      <Text>Downloading from:</Text>
+      <Text weight="bold">{snapshotSource.name}</Text>
+      <Text color="gray">({snapshotSource.ip})</Text>
+    </Flex>
+  );
+}
+```
+
+## Error Handling
+
+If startup encounters errors:
+
+### Download Failures
+
+- Automatic retry with exponential backoff
+- Fallback to alternative snapshot sources
+- Error message with retry countdown
+
+### Verification Failures
+
+- Snapshot hash mismatch detection
+- Automatic re-download from different source
+- Warning notifications
+
+### Network Issues
+
+- Connection timeout detection
+- Peer reconnection attempts
+- Network diagnostic information
+
+## Performance Indicators
+
+### System Resource Usage
+
+During startup, the screen may display:
+
+- CPU utilization
+- Memory usage
+- Disk I/O rates
+- Network bandwidth
+
+### Bottleneck Detection
+
+Identifies limiting factors:
+
+- "Disk I/O limited" - Storage speed bottleneck
+- "Network limited" - Download speed bottleneck
+- "CPU limited" - Processing power bottleneck
+
+## Comparison to Previous Starts
+
+The UI may show comparisons to previous startup times:
+
+```tsx
+function StartupComparison() {
+  const currentDuration = useCurrentStartupDuration();
+  const avgPreviousDuration = useAverageStartupDuration();
+  
+  const comparison = currentDuration - avgPreviousDuration;
+  const isSlower = comparison > 0;
+  
+  return (
+    <Text color={isSlower ? "red" : "green"}>
+      {isSlower ? "Slower" : "Faster"} than average by {formatDuration(Math.abs(comparison))}
+    </Text>
+  );
+}
+```
+
+## Shreds Chart During Startup
+
+<Note>
+Firedancer only - shows shred reception during catchup
+</Note>
+
+During the catching up phase, a real-time shreds chart appears:
+
+```tsx
+<ShredsChart
+  height="300px"
+  chartId="startup-shreds-chart"
+  isOnStartupScreen={true}
+/>
+```
+
+Visualize:
+- Shred reception rate
+- Gap detection and recovery
+- Network quality indicators
+
+## Logo Display
+
+The Firedancer logo is prominently displayed during startup:
+
+```tsx src/features/StartupProgress/Firedancer/Logo.tsx
+// Animated logo
+// Phase-specific styling
+// Branding elements
+```
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Overview Dashboard" icon="gauge" href="/features/overview">
+    Main monitoring interface shown after startup completes
+  </Card>
+  <Card title="Development Setup" icon="gear" href="/development/setup">
+    Set up your development environment
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Stuck at Joining Gossip
+
+1. Verify network connectivity
+2. Check firewall rules for gossip port
+3. Ensure entrypoints are reachable
+4. Verify system clock is synchronized
+
+### Slow Snapshot Download
+
+1. Check network bandwidth
+2. Try different snapshot source
+3. Verify disk write speed
+4. Consider using local snapshot cache
+
+### Catchup Taking Too Long
+
+1. Check CPU utilization
+2. Verify sufficient memory available
+3. Monitor disk I/O performance
+4. Consider hardware upgrades if consistently slow
+
+### Startup Failures
+
+If startup repeatedly fails:
+1. Check validator logs for specific errors
+2. Verify accounts DB integrity
+3. Ensure sufficient disk space
+4. Try deleting ledger and restarting fresh

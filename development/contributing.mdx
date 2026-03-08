@@ -1,0 +1,295 @@
+---
+title: Contributing
+description: Guidelines for contributing to the Firedancer Frontend project
+---
+
+## Getting Started
+
+Thank you for your interest in contributing to the Firedancer Frontend! This guide will help you get started.
+
+<Steps>
+  <Step title="Fork and clone">
+    Fork the repository and clone it locally:
+    ```bash
+    git clone https://github.com/your-username/firedancer-frontend.git
+    cd firedancer-frontend
+    ```
+  </Step>
+
+  <Step title="Set up development environment">
+    Follow the [Development Setup](/development/setup) guide to install dependencies and configure your environment.
+  </Step>
+
+  <Step title="Create a branch">
+    Create a new branch for your changes:
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+  </Step>
+</Steps>
+
+## Code Style
+
+The project uses ESLint and Prettier to maintain consistent code style.
+
+### ESLint Configuration
+
+The project uses a flat ESLint config (`eslint.config.mjs`) with:
+
+- **TypeScript ESLint**: Type-aware linting rules
+- **React Plugin**: React-specific rules
+- **React Hooks Plugin**: Hooks linting
+- **Prettier Integration**: Disables conflicting ESLint rules
+
+### Linting Commands
+
+<CodeGroup>
+```bash Check code style
+npm run lint
+```
+
+```bash Auto-fix issues
+npm run lint:fix
+```
+</CodeGroup>
+
+### Key Linting Rules
+
+From `eslint.config.mjs`:
+
+```javascript eslint.config.mjs
+rules: {
+  "eqeqeq": ["error", "always", { null: "ignore" }],
+  "@typescript-eslint/consistent-type-imports": [
+    "error",
+    { prefer: "type-imports" }
+  ],
+  "@typescript-eslint/switch-exhaustiveness-check": [
+    "error",
+    {
+      allowDefaultCaseForExhaustiveSwitch: false,
+      requireDefaultForNonUnion: true,
+    }
+  ],
+  "react-refresh/only-export-components": [
+    "warn",
+    { allowConstantExport: true }
+  ],
+}
+```
+
+### TypeScript Style
+
+<Note>
+  Always use type imports when importing types:
+  ```typescript
+  // Good
+  import type { MyType } from './types';
+  
+  // Bad
+  import { MyType } from './types';
+  ```
+</Note>
+
+### Important Rules
+
+- Use `===` instead of `==` (except for null checks)
+- Ensure switch statements are exhaustive
+- Use `const` for variables that don't change
+- Remove unused variables and imports
+- No debugger statements in production code
+
+## Pre-commit Hooks
+
+The project uses Husky and lint-staged to run checks before commits.
+
+### Husky Setup
+
+Pre-commit hook configuration in `.husky/pre-commit`:
+
+```bash .husky/pre-commit
+npx lint-staged
+npm run test
+```
+
+### Lint-staged Configuration
+
+From `package.json`:
+
+```json package.json
+{
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,css,md}": "prettier --write",
+    "*.{ts,tsx}": "eslint --max-warnings 0"
+  }
+}
+```
+
+<Warning>
+  Pre-commit hooks will:
+  1. Format all staged files with Prettier
+  2. Lint TypeScript files with ESLint (no warnings allowed)
+  3. Run all tests
+  
+  Your commit will be rejected if any of these fail.
+</Warning>
+
+## Git Workflow
+
+<Steps>
+  <Step title="Make your changes">
+    Write clean, well-documented code following the project's style guidelines.
+  </Step>
+
+  <Step title="Test your changes">
+    ```bash
+    npm run test
+    npm run lint
+    ```
+  </Step>
+
+  <Step title="Commit your changes">
+    Write clear, descriptive commit messages:
+    ```bash
+    git add .
+    git commit -m "feat: add new dashboard metric"
+    ```
+    
+    Pre-commit hooks will run automatically.
+  </Step>
+
+  <Step title="Push to your fork">
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+  </Step>
+
+  <Step title="Create a pull request">
+    Open a pull request from your fork to the main repository.
+  </Step>
+</Steps>
+
+## Commit Message Guidelines
+
+Use conventional commit format:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+### Commit Types
+
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code refactoring
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks
+
+### Examples
+
+```bash
+feat(dashboard): add real-time metrics display
+fix(websocket): handle connection timeout properly
+docs(readme): update installation instructions
+refactor(components): simplify state management
+```
+
+## Pull Request Process
+
+<Steps>
+  <Step title="Ensure all checks pass">
+    - All tests pass
+    - No linting errors
+    - Code is formatted with Prettier
+  </Step>
+
+  <Step title="Write a clear description">
+    Describe what your PR does and why:
+    - What problem does it solve?
+    - What changes were made?
+    - Are there any breaking changes?
+  </Step>
+
+  <Step title="Request review">
+    Request review from project maintainers.
+  </Step>
+
+  <Step title="Address feedback">
+    Respond to review comments and make requested changes.
+  </Step>
+</Steps>
+
+## Code Review Guidelines
+
+### For Contributors
+
+- Be open to feedback and suggestions
+- Respond to comments promptly
+- Keep PRs focused and reasonably sized
+- Update your PR based on feedback
+
+### For Reviewers
+
+- Be constructive and respectful
+- Explain the reasoning behind suggestions
+- Approve PRs that meet the project's standards
+- Request changes for code that needs improvement
+
+## Development Tools
+
+### Vite Plugin Checker
+
+Real-time type checking and linting in development:
+
+```typescript vite.config.ts
+checker({
+  typescript: true,
+}),
+checker({
+  eslint: {
+    lintCommand: 'eslint "./src/**/*.{ts,tsx}"',
+    useFlatConfig: true,
+  },
+  overlay: false,
+})
+```
+
+### TanStack Router DevTools
+
+Routing debugging tools available in development mode.
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Setup" icon="rocket" href="/development/setup">
+    Set up your development environment
+  </Card>
+  <Card title="Building" icon="hammer" href="/development/building">
+    Learn about the build process
+  </Card>
+  <Card title="Testing" icon="flask" href="/development/testing">
+    Write and run tests
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Understand the codebase structure
+  </Card>
+</CardGroup>
+
+## Questions?
+
+If you have questions about contributing:
+
+1. Check existing issues and discussions
+2. Review the documentation
+3. Ask in the project's communication channels
+4. Open a new discussion or issue
+
+<Tip>
+  Small, focused PRs are easier to review and more likely to be merged quickly!
+</Tip>

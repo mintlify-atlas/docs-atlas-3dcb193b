@@ -1,0 +1,189 @@
+---
+title: Building
+description: Build the Firedancer Frontend for production deployment
+---
+
+## Build Process
+
+The project uses Vite as its build tool, with TypeScript compilation and optimized bundling.
+
+## Production Build
+
+<Steps>
+  <Step title="Configure environment">
+    Create a production environment file:
+    ```bash
+    cp .env.example .env.production
+    ```
+
+    Set your production environment variables:
+    ```bash
+    VITE_WEBSOCKET_URL=wss://your-production-url
+    VITE_VALIDATOR_CLIENT=Firedancer
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    Use `npm ci` for clean, reproducible builds:
+    ```bash
+    npm ci
+    ```
+  </Step>
+
+  <Step title="Run the build">
+    ```bash
+    npm run build
+    ```
+    This compiles TypeScript and creates an optimized production bundle in the `./dist` directory.
+  </Step>
+</Steps>
+
+## Build Variants
+
+The project supports building for different validator clients:
+
+<CodeGroup>
+```bash Firedancer Build
+npm run build:fd
+```
+
+```bash Frankendancer Build
+npm run build:fr
+```
+
+```bash Development Build
+npm run build:dev
+```
+</CodeGroup>
+
+### Build Script Details
+
+<ParamField path="build" type="script">
+  Standard production build
+  ```json
+  "build": "tsc && vite build"
+  ```
+</ParamField>
+
+<ParamField path="build:fd" type="script">
+  Build specifically for Firedancer validator
+  ```json
+  "build:fd": "tsc && VITE_VALIDATOR_CLIENT=Firedancer vite build"
+  ```
+</ParamField>
+
+<ParamField path="build:fr" type="script">
+  Build specifically for Frankendancer validator
+  ```json
+  "build:fr": "tsc && VITE_VALIDATOR_CLIENT=Frankendancer vite build"
+  ```
+</ParamField>
+
+<ParamField path="build:dev" type="script">
+  Development mode build (not minified, includes source maps)
+  ```json
+  "build:dev": "tsc && vite build --mode development"
+  ```
+</ParamField>
+
+## Build Configuration
+
+The build is configured in `vite.config.ts`:
+
+```typescript vite.config.ts
+build: {
+  minify: "esbuild",
+  rollupOptions: {
+    plugins: [
+      license({
+        thirdParty: {
+          output: {
+            file: "dist/LICENSE_DEPENDENCIES",
+          },
+        },
+      }),
+    ],
+  },
+}
+```
+
+### Build Features
+
+- **Minification**: esbuild for fast, efficient minification
+- **License Generation**: Automatic third-party license file generation
+- **Code Splitting**: Automatic chunk splitting for optimal loading
+- **CSS Modules**: Camel case class name transformation
+- **WASM Support**: Via `vite-plugin-wasm` and `vite-plugin-top-level-await`
+- **SVG Components**: SVG files imported as React components via `vite-plugin-svgr`
+
+## Output Structure
+
+After building, the `./dist` directory contains:
+
+```
+dist/
+├── assets/          # JavaScript, CSS, and other bundled assets
+├── index.html       # Entry HTML file
+└── LICENSE_DEPENDENCIES  # Third-party licenses
+```
+
+## Serving Static Assets
+
+After building, serve the static assets from the `./dist` directory:
+
+<CodeGroup>
+```bash Using serve
+npx serve dist
+```
+
+```bash Using Vite preview
+npm run preview
+```
+
+```bash Using Python
+python3 -m http.server 5173 --directory dist
+```
+</CodeGroup>
+
+<Note>
+  The preview server runs with `NODE_OPTIONS=--max-http-header-size=64000` to match development behavior.
+</Note>
+
+## TypeScript Compilation
+
+All build scripts run TypeScript compilation (`tsc`) before bundling to catch type errors early.
+
+TypeScript configuration in `tsconfig.json`:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true
+  }
+}
+```
+
+## CI/CD Integration
+
+For automated builds in CI/CD pipelines:
+
+```bash
+# Install exact dependencies
+npm ci
+
+# Run linting and tests
+npm run lint
+npm run test
+
+# Build for production
+npm run build
+```
+
+<Tip>
+  Always use `npm ci` instead of `npm install` in CI/CD environments for reproducible builds.
+</Tip>

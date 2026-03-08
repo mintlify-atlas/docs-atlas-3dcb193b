@@ -1,0 +1,423 @@
+---
+title: Hooks
+description: Custom React hooks for the Firedancer Frontend
+---
+
+## useSlotInfo
+
+Retrieves comprehensive information about a slot including leader details, peer info, and location data.
+
+**Parameters**
+
+<ParamField path="slot" type="number" required>
+  The slot number to get information for
+</ParamField>
+
+**Returns**
+
+An object containing:
+
+- `pubkey` - The public key of the slot leader
+- `peer` - Full peer object
+- `isLeader` - Boolean indicating if the current validator is the leader
+- `name` - Display name ("You" for current validator, peer name, or "Private")
+- `client` - Client name (Firedancer, Agave, etc.)
+- `version` - Client version string
+- `countryCode` - ISO country code
+- `countryFlag` - Country flag emoji
+- `cityName` - City name
+
+```tsx
+import { useSlotInfo } from "./hooks/useSlotInfo";
+
+function SlotLeaderCard({ slot }: { slot: number }) {
+  const { name, isLeader, client, version, countryFlag, cityName } =
+    useSlotInfo(slot);
+
+  return (
+    <div>
+      <h3>{isLeader ? "You are the leader" : `Leader: ${name}`}</h3>
+      <p>
+        {client} v{version}
+      </p>
+      <p>
+        {countryFlag} {cityName}
+      </p>
+    </div>
+  );
+}
+```
+
+## usePeerInfo
+
+Extracts and formats peer information including client type and location.
+
+**Parameters**
+
+<ParamField path="peer" type="Peer | undefined">
+  The peer object to extract information from
+</ParamField>
+
+**Returns**
+
+An object containing:
+
+- `client` - Detected client name (Agave, Firedancer, Frankendancer, etc.)
+- `version` - Client version string
+- `countryCode` - ISO country code
+- `countryFlag` - Country flag emoji
+- `cityName` - City name
+
+```tsx
+import { usePeerInfo } from "./hooks/usePeerInfo";
+import { usePeer } from "./hooks/usePeer";
+
+function PeerDetails({ pubkey }: { pubkey: string }) {
+  const peer = usePeer(pubkey);
+  const { client, version, countryFlag, cityName } = usePeerInfo(peer);
+
+  return (
+    <div>
+      <p>Client: {client}</p>
+      <p>Version: {version}</p>
+      <p>Location: {countryFlag} {cityName}</p>
+    </div>
+  );
+}
+```
+
+## useSlotRankings
+
+Queries and continuously updates slot rankings data via WebSocket.
+
+**Parameters**
+
+<ParamField path="mine" type="boolean" default="false">
+  If true, only fetches rankings for the current validator's slots
+</ParamField>
+
+**Returns**
+
+void - This hook manages its own state via atoms and side effects
+
+```tsx
+import useSlotRankings from "./hooks/useSlotRankings";
+
+function RankingsView() {
+  // Fetch all rankings
+  useSlotRankings(false);
+
+  return <div>Slot rankings are being updated...</div>;
+}
+```
+
+## useTimeAgo
+
+Calculates and returns "time ago" text for a slot's completion time.
+
+**Parameters**
+
+<ParamField path="slot" type="number" required>
+  The slot number
+</ParamField>
+
+<ParamField path="options" type="DurationOptions">
+  Options for duration formatting:
+  - `showOnlyTwoSignificantUnits` - Limit to two most significant time units
+  - `omitSeconds` - Don't show seconds in output
+</ParamField>
+
+**Returns**
+
+An object containing:
+
+- `slotTimestampNanos` - Slot completion timestamp in nanoseconds
+- `slotDateTime` - Luxon DateTime object
+- `timeAgoText` - Formatted relative time string (e.g., "5m 23s ago")
+
+```tsx
+import { useTimeAgo } from "./hooks/useTimeAgo";
+
+function SlotTimestamp({ slot }: { slot: number }) {
+  const { timeAgoText } = useTimeAgo(slot, { omitSeconds: true });
+
+  return <span>{timeAgoText}</span>;
+}
+```
+
+## useUptime
+
+Calculates the validator's uptime duration since startup.
+
+**Parameters**
+
+<ParamField path="updateIntervalMs" type="number" required>
+  How frequently to update the uptime (in milliseconds)
+</ParamField>
+
+**Returns**
+
+A Luxon Duration object representing the uptime, or undefined if startup time is not available
+
+```tsx
+import { useUptimeDuration } from "./hooks/useUptime";
+import { getDurationText } from "../utils";
+
+function UptimeDisplay() {
+  const uptime = useUptimeDuration(1000); // Update every second
+
+  return <div>Uptime: {uptime ? getDurationText(uptime) : "N/A"}</div>;
+}
+```
+
+## useRelativeTime
+
+Calculates relative time from a target DateTime, updating every second.
+
+**Parameters**
+
+<ParamField path="target" type="DateTime | undefined">
+  The target DateTime to calculate relative time from
+</ParamField>
+
+<ParamField path="options" type="DurationOptions">
+  Options for duration formatting
+</ParamField>
+
+**Returns**
+
+A formatted string like "5m 23s ago" or "2h 15m" (for future times), or undefined if no target
+
+```tsx
+import { useRelativeTime } from "./hooks/useRelativeTime";
+import { DateTime } from "luxon";
+
+function EventTime({ timestamp }: { timestamp: DateTime }) {
+  const relativeTime = useRelativeTime(timestamp);
+
+  return <span>{relativeTime}</span>;
+}
+```
+
+## useCurrentRoute
+
+Determines the current route/page from the URL pathname.
+
+**Returns**
+
+A `RouteLabel`: "Overview" | "Schedule" | "Gossip" | "Slot Details"
+
+```tsx
+import { useCurrentRoute } from "./hooks/useCurrentRoute";
+
+function NavigationBreadcrumb() {
+  const currentRoute = useCurrentRoute();
+
+  return <div>Current Page: {currentRoute}</div>;
+}
+```
+
+## usePeer
+
+Retrieves a peer object by their identity public key.
+
+**Parameters**
+
+<ParamField path="identity" type="string | undefined">
+  The peer's identity public key
+</ParamField>
+
+**Returns**
+
+A `Peer` object or undefined if not found
+
+```tsx
+import { usePeer } from "./hooks/usePeer";
+
+function PeerCard({ pubkey }: { pubkey: string }) {
+  const peer = usePeer(pubkey);
+
+  if (!peer) return <div>Peer not found</div>;
+
+  return <div>{peer.info?.name ?? "Unknown"}</div>;
+}
+```
+
+## usePubKey
+
+Gets the leader's public key for a given slot number.
+
+**Parameters**
+
+<ParamField path="slot" type="number" required>
+  The slot number
+</ParamField>
+
+**Returns**
+
+The leader's public key string, or undefined if epoch data is not available
+
+```tsx
+import { usePubKey } from "./hooks/usePubKey";
+
+function SlotLeaderPubkey({ slot }: { slot: number }) {
+  const pubkey = usePubKey(slot);
+
+  return <div>Leader: {pubkey ?? "Unknown"}</div>;
+}
+```
+
+## useEma
+
+Calculates an Exponential Moving Average (EMA) from a cumulative value, useful for smoothing rate calculations.
+
+**Parameters**
+
+<ParamField path="cumulativeValue" type="number | null | undefined" required>
+  The cumulative value to track (must be monotonically increasing)
+</ParamField>
+
+<ParamField path="options" type="UseEmaOptions">
+  Configuration options:
+  - `forceUpdateIntervalMs` (default: 1500) - Update interval in milliseconds
+  - `halfLifeMs` (default: 5000) - Half-life for the EMA decay
+  - `initMinSamples` (default: 5) - Minimum samples before initializing EMA
+</ParamField>
+
+**Returns**
+
+An object containing:
+
+- `ema` - The current EMA value (rate per second)
+- `reset` - Function to reset the EMA calculation
+
+```tsx
+import { useEma } from "./hooks/useEma";
+
+function TransactionRateMonitor({ cumulativeTxCount }: { cumulativeTxCount: number }) {
+  const { ema } = useEma(cumulativeTxCount, {
+    halfLifeMs: 10_000,
+    forceUpdateIntervalMs: 2_000,
+  });
+
+  return <div>Current TPS: {ema?.toFixed(2) ?? "Calculating..."}</div>;
+}
+```
+
+### useEmaValue
+
+Convenience hook that returns just the EMA value (defaults to 0 if undefined).
+
+```tsx
+import { useEmaValue } from "./hooks/useEma";
+
+function SimpleRateDisplay({ count }: { count: number }) {
+  const rate = useEmaValue(count);
+
+  return <div>{rate.toFixed(1)} per second</div>;
+}
+```
+
+## useEventListener
+
+Attaches an event listener to an element or window. Automatically handles cleanup.
+
+**Parameters**
+
+<ParamField path="eventType" type="string | readonly string[]" required>
+  Event type(s) to listen for (e.g., "click", ["mousedown", "touchstart"])
+</ParamField>
+
+<ParamField path="handler" type="(e: Event) => void" required>
+  Event handler function (does not need to be memoized)
+</ParamField>
+
+<ParamField path="target" type="HTMLElement | EventTarget" default="window">
+  The element to attach the listener to
+</ParamField>
+
+**Returns**
+
+void
+
+```tsx
+import { useEventListener } from "./hooks/useEventListener";
+import { useRef } from "react";
+
+function ClickableArea() {
+  const divRef = useRef<HTMLDivElement>(null);
+
+  useEventListener(
+    "click",
+    (e) => {
+      console.log("Clicked!", e);
+    },
+    divRef.current ?? window
+  );
+
+  return <div ref={divRef}>Click me</div>;
+}
+```
+
+## Additional Hooks
+
+### useIdentityPeer
+
+Retrieves the peer object for the current validator's identity.
+
+```tsx
+import { useIdentityPeer } from "./hooks/useIdentityPeer";
+
+const myPeer = useIdentityPeer();
+```
+
+### useNextSlot
+
+Gets the next slot number.
+
+```tsx
+import { useNextSlot } from "./hooks/useNextSlot";
+
+const nextSlot = useNextSlot();
+```
+
+### usePing
+
+Retrieves ping latency for a peer.
+
+```tsx
+import { usePing } from "./hooks/usePing";
+
+const ping = usePing(peerPubkey);
+```
+
+### useSlotQuery
+
+Queries slot data via WebSocket.
+
+```tsx
+import { useSlotQuery } from "./hooks/useSlotQuery";
+
+const slotData = useSlotQuery(slot);
+```
+
+### useSlotsNavigation
+
+Provides navigation helpers for moving between slots.
+
+```tsx
+import { useSlotsNavigation } from "./hooks/useSlotsNavigation";
+
+const { goToNextSlot, goToPrevSlot } = useSlotsNavigation();
+```
+
+### useNavigateLeaderSlot
+
+Navigates to a specific leader slot.
+
+```tsx
+import { useNavigateLeaderSlot } from "./hooks/useNavigateLeaderSlot";
+
+const navigateToLeaderSlot = useNavigateLeaderSlot();
+navigateToLeaderSlot(12345);
+```

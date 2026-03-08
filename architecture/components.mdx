@@ -1,0 +1,443 @@
+---
+title: Component Architecture
+description: Component organization, structure, and design patterns
+---
+
+The Firedancer Frontend uses a feature-based component architecture that promotes code organization, reusability, and maintainability.
+
+## Organization Strategy
+
+Components are organized into two main categories:
+
+<CardGroup cols={2}>
+  <Card title="Reusable Components" icon="puzzle-piece">
+    Generic UI components in `src/components/`
+  </Card>
+  <Card title="Feature Components" icon="layer-group">
+    Feature-specific components in `src/features/`
+  </Card>
+</CardGroup>
+
+### Directory Structure
+
+```bash
+src/
+├── components/           # Reusable UI components
+│   ├── Card.tsx
+│   ├── CardHeader.tsx
+│   ├── CardStat.tsx
+│   ├── CopyButton.tsx
+│   ├── Dropdown.tsx
+│   ├── FlashText.tsx
+│   ├── MonoText.tsx
+│   ├── PopoverDropdown.tsx
+│   ├── StatusIcon.tsx
+│   └── ...
+└── features/            # Feature-specific components
+    ├── Overview/        # Main dashboard
+    │   ├── EpochCard/
+    │   ├── SlotPerformance/
+    │   ├── TransactionsCard/
+    │   └── index.tsx
+    ├── LeaderSchedule/  # Leader schedule view
+    ├── SlotDetails/     # Slot detail view
+    ├── Gossip/          # Gossip monitoring
+    ├── Header/          # App header
+    └── Navigation/      # Sidebar navigation
+```
+
+## Reusable Components
+
+Generic components in `src/components/` are designed to be used across features.
+
+### Card Component
+
+A foundational container component used throughout the app:
+
+```tsx src/components/Card.tsx
+import clsx from "clsx";
+import styles from "./card.module.css";
+import type { PropsWithChildren, HTMLAttributes } from "react";
+
+interface CardProps {
+  hideChildren?: boolean;
+  isNarrow?: boolean;
+}
+
+export default function Card({
+  children,
+  hideChildren,
+  isNarrow = false,
+  ...props
+}: PropsWithChildren<CardProps & HTMLAttributes<HTMLDivElement>>) {
+  return (
+    <div
+      {...props}
+      className={clsx(styles.card, isNarrow && styles.narrow, props.className)}
+    >
+      {!hideChildren && children}
+    </div>
+  );
+}
+```
+
+**Usage Example:**
+
+```tsx
+import Card from "@/components/Card";
+import CardHeader from "@/components/CardHeader";
+import CardStat from "@/components/CardStat";
+
+function MetricsCard() {
+  return (
+    <Card>
+      <CardHeader>Performance Metrics</CardHeader>
+      <CardStat label="TPS" value="2,847" />
+      <CardStat label="Slot Time" value="425ms" />
+    </Card>
+  );
+}
+```
+
+### FlashText Component
+
+Highlights text changes with a visual flash effect:
+
+```tsx
+import FlashText from "@/components/FlashText";
+
+function LiveMetric({ value }: { value: number }) {
+  return (
+    <FlashText>
+      {value.toLocaleString()}
+    </FlashText>
+  );
+}
+```
+
+The component automatically detects when children change and applies a flash animation.
+
+### CopyButton Component
+
+Provides one-click copying with visual feedback:
+
+```tsx
+import CopyButton from "@/components/CopyButton";
+
+function IdentityDisplay({ pubkey }: { pubkey: string }) {
+  return (
+    <div>
+      <MonoText>{pubkey}</MonoText>
+      <CopyButton text={pubkey} />
+    </div>
+  );
+}
+```
+
+## Feature Components
+
+Feature components are organized by functionality and contain their own state, logic, and sub-components.
+
+### Overview Feature
+
+The main dashboard view demonstrating feature composition:
+
+```tsx src/features/Overview/index.tsx
+import { Flex } from "@radix-ui/themes";
+import TransactionsCard from "./TransactionsCard";
+import SlotPerformance from "./SlotPerformance";
+import ValidatorsCard from "./ValidatorsCard";
+import SlotStatusCard from "./StatusCard";
+import EpochCard from "./EpochCard";
+import ShredsProgression from "./ShredsProgression";
+import LiveNetworkMetrics from "./LiveNetworkMetrics";
+import LiveTileMetrics from "./LiveTileMetrics";
+import SlotTimeline from "./SlotTimeline";
+
+export default function Overview() {
+  return (
+    <Flex direction="column" gap="4" flexGrow="1">
+      <SlotTimeline />
+      <Flex gap="16px" align="stretch" wrap="wrap">
+        <EpochCard />
+        <SlotStatusCard />
+        <ValidatorsCard />
+        <TransactionsCard />
+      </Flex>
+      <ShredsProgression />
+      <SlotPerformance />
+      <LiveNetworkMetrics />
+      <LiveTileMetrics />
+    </Flex>
+  );
+}
+```
+
+**Key Characteristics:**
+
+- **Composability**: Combines multiple card components
+- **Layout**: Uses Radix UI Flex for responsive layout
+- **Independence**: Each card manages its own state
+- **Modularity**: Cards can be reordered or removed easily
+
+### Feature Internal Organization
+
+Larger features are organized into subdirectories:
+
+```bash
+features/Overview/
+├── index.tsx              # Main feature component
+├── EpochCard/
+│   ├── index.tsx          # Card component
+│   └── epochCard.module.css
+├── SlotPerformance/
+│   ├── index.tsx
+│   ├── atoms.ts           # Feature-specific state
+│   ├── Waterfall/         # Sub-feature
+│   └── TxnList/           # Sub-feature
+└── TransactionsCard/
+    ├── index.tsx
+    └── transactionsCard.module.css
+```
+
+## Component Patterns
+
+### State Subscription Pattern
+
+Components subscribe to Jotai atoms for reactive updates:
+
+```tsx
+import { useAtomValue } from "jotai";
+import { currentSlotAtom, epochAtom } from "@/atoms";
+
+function SlotInfo() {
+  const currentSlot = useAtomValue(currentSlotAtom);
+  const epoch = useAtomValue(epochAtom);
+
+  return (
+    <div>
+      <div>Current Slot: {currentSlot}</div>
+      <div>Epoch: {epoch?.epoch}</div>
+    </div>
+  );
+}
+```
+
+### Computed State Pattern
+
+Derive state using Jotai's derived atoms:
+
+```tsx
+import { atom } from "jotai";
+import { currentSlotAtom, epochAtom } from "@/atoms";
+
+// Derived atom
+export const slotProgressAtom = atom((get) => {
+  const currentSlot = get(currentSlotAtom);
+  const epoch = get(epochAtom);
+  
+  if (!currentSlot || !epoch) return 0;
+  
+  const slotsInEpoch = epoch.end_slot - epoch.start_slot;
+  const progress = (currentSlot - epoch.start_slot) / slotsInEpoch;
+  
+  return progress * 100;
+});
+
+// Component using derived state
+function EpochProgress() {
+  const progress = useAtomValue(slotProgressAtom);
+  
+  return (
+    <div>
+      Epoch Progress: {progress.toFixed(1)}%
+    </div>
+  );
+}
+```
+
+### Action Pattern
+
+Write-only atoms for triggering state updates:
+
+```tsx
+import { atom, useSetAtom } from "jotai";
+import { slotOverrideAtom } from "@/atoms";
+
+function SlotNavigator() {
+  const setSlotOverride = useSetAtom(slotOverrideAtom);
+  
+  const handleJumpToSlot = (slot: number) => {
+    setSlotOverride(slot);
+  };
+  
+  return (
+    <button onClick={() => handleJumpToSlot(12345)}>
+      Jump to Slot 12345
+    </button>
+  );
+}
+```
+
+## Styling Approach
+
+The project uses a hybrid styling approach:
+
+### CSS Modules
+
+Component-specific styles use CSS Modules:
+
+```css card.module.css
+.card {
+  background: var(--gray-2);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.narrow {
+  padding: 8px;
+}
+```
+
+```tsx
+import styles from "./card.module.css";
+
+function Card({ isNarrow }) {
+  return (
+    <div className={clsx(styles.card, isNarrow && styles.narrow)}>
+      {children}
+    </div>
+  );
+}
+```
+
+### Radix UI Themes
+
+Utility props for layout and spacing:
+
+```tsx
+import { Flex, Box } from "@radix-ui/themes";
+
+function Layout() {
+  return (
+    <Flex direction="column" gap="4" p="2">
+      <Box flexGrow="1">{content}</Box>
+    </Flex>
+  );
+}
+```
+
+### CSS Custom Properties
+
+Global design tokens defined in CSS variables:
+
+```tsx src/App.tsx
+const setRefAndColors = useCallback((el: HTMLDivElement) => {
+  setContainerEl(el);
+  // Inject custom color properties
+  Object.entries(colors).forEach(([name, value]) => {
+    el.style.setProperty(`--${kebabCase(name)}`, value);
+  });
+}, [setContainerEl]);
+```
+
+## Root Layout
+
+The app's root layout structure from `src/routes/__root.tsx`:
+
+```tsx
+function Root() {
+  return (
+    <>
+      <Toast />
+      <StartupProgress>
+        <div id="scroll-container">
+          <Header />
+          <Flex className="app-width-container" px="2" position="relative">
+            <Navigation />
+            <OutletContainer />
+          </Flex>
+        </div>
+      </StartupProgress>
+    </>
+  );
+}
+```
+
+**Layout Components:**
+
+- `Toast`: Global notification system
+- `StartupProgress`: Startup screen overlay
+- `Header`: Top navigation and status bar
+- `Navigation`: Sidebar with slot navigation
+- `OutletContainer`: Route content area
+
+## Component Communication
+
+### Parent-Child Props
+
+Standard React props for direct parent-child communication:
+
+```tsx
+function MetricDisplay({ value, label }: { value: number; label: string }) {
+  return <CardStat label={label} value={value.toString()} />;
+}
+```
+
+### Shared State (Atoms)
+
+Jotai atoms for sharing state across the component tree:
+
+```tsx
+// Multiple components can read/write the same atom
+const selectedSlot = useAtomValue(selectedSlotAtom);
+const setSelectedSlot = useSetAtom(selectedSlotAtom);
+```
+
+### Context (Rarely Used)
+
+The app primarily uses Jotai atoms instead of React Context, but Context is used for the WebSocket connection:
+
+```tsx
+import { ConnectionContext } from "@/api/ws/ConnectionContext";
+
+function FeatureComponent() {
+  const { sendMessage } = useContext(ConnectionContext);
+  // ...
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep components focused">
+    Each component should have a single responsibility. Break down complex components into smaller, focused pieces.
+  </Accordion>
+  
+  <Accordion title="Colocate related code">
+    Keep feature-specific components, styles, and state together in feature directories.
+  </Accordion>
+  
+  <Accordion title="Use TypeScript strictly">
+    Define proper types for props, state, and API responses. Avoid `any` types.
+  </Accordion>
+  
+  <Accordion title="Prefer composition over props">
+    Use composition patterns (children, slots) rather than complex prop drilling.
+  </Accordion>
+  
+  <Accordion title="Minimize re-renders">
+    Subscribe only to the atoms you need. Use derived atoms for computed values.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="State Management" icon="database" href="/architecture/state-management">
+    Learn about Jotai atoms and state patterns
+  </Card>
+  <Card title="WebSocket Integration" icon="signal" href="/architecture/websocket-integration">
+    Understand real-time data flow
+  </Card>
+</CardGroup>

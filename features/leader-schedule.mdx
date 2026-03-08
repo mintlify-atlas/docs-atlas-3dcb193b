@@ -1,0 +1,543 @@
+---
+title: Leader Schedule
+description: View your validator's leader slot schedule, track performance, and analyze slot rankings across the epoch
+---
+
+The Leader Schedule page provides a comprehensive view of slot assignments for the current epoch, allowing you to monitor upcoming leader slots, review past performance, and filter slots based on various criteria.
+
+## Page Overview
+
+The Leader Schedule route (`src/routes/leaderSchedule.tsx`) supports advanced search and filtering via URL parameters:
+
+```tsx
+const searchParamsSchema = z.object({
+  searchType: SearchTypeSchema.default(SearchTypeEnum.text).catch(
+    SearchTypeEnum.text,
+  ),
+  searchText: z.string().default("").catch(""),
+});
+
+export const Route = createFileRoute("/leaderSchedule")({
+  component: LeaderSchedule,
+  validateSearch: searchParamsSchema,
+  search: {
+    middlewares: [
+      stripSearchParams(defaultValues),
+      retainSearchParams(["searchType", "searchText"]),
+    ],
+  },
+});
+```
+
+### Search Types
+
+The page supports four search/filter modes:
+
+```tsx
+const SearchTypeSchema = z.enum([
+  "mySlots",
+  "skippedSlots",
+  "lateVoteSlots",
+  "text",
+]);
+```
+
+## Main Components
+
+The Leader Schedule page (`src/features/LeaderSchedule/index.tsx`) consists of:
+
+```tsx
+export function LeaderSchedule() {
+  const epoch = useAtomValue(epochAtom);
+  const setSlotOverride = useSetAtom(slotOverrideAtom);
+  const setSlotNavFilter = useSetAtom(slotNavFilterAtom);
+
+  useMount(() => {
+    setSlotOverride(undefined);
+    setSlotNavFilter(undefined);
+  });
+
+  if (!epoch) return;
+
+  return (
+    <Flex
+      direction="column"
+      gap="4"
+      width="100%"
+      maxHeight={`calc(100vh - ${clusterIndicatorHeight + headerHeight + 12}px)`}
+    >
+      <Slots />
+    </Flex>
+  );
+}
+```
+
+## Search and Filters
+
+The search bar (`src/features/LeaderSchedule/Search.tsx`) provides multiple ways to filter slots:
+
+<Frame>
+  <img src="/images/leader-schedule-search.png" alt="Leader Schedule search bar" />
+</Frame>
+
+### Text Search
+
+Search by validator name, public key, or slot number:
+
+```tsx
+<TextField.Root
+  placeholder="Name, pubkey, or slot (separate with , or ; for multiple values)"
+  variant="soft"
+  color="gray"
+  onChange={(e) => {
+    setLocalValue(e.currentTarget.value);
+    debouncedSetSearch(e.currentTarget.value);
+  }}
+  value={localValue}
+>
+  <TextField.Slot>
+    <MagnifyingGlassIcon height="16" width="16" />
+  </TextField.Slot>
+</TextField.Root>
+```
+
+Search supports:
+- Multiple values separated by commas or semicolons
+- Partial validator name matching
+- Full or partial public key matching
+- Exact slot numbers
+- 1-second debounce to prevent excessive filtering
+
+### Quick Filters
+
+#### My Slots Filter
+
+Toggle to show only slots where your validator is the leader:
+
+```tsx
+function MySlots({ resetSearchText }: MySlotsProps) {
+  const leaderSlots = useAtomValue(leaderSlotsAtom);
+  const setSearch = useSetAtom(searchLeaderSlotsAtom);
+  const { searchType, setSearchType } = useSearchTypeSearchParam();
+
+  const slotCount = (leaderSlots?.length ?? 0) * 4;
+
+  const setMySlots = useCallback(() => {
+    setSearch(leaderSlots);
+  }, [setSearch, leaderSlots]);
+
+  const handleClick = () => {
+    resetSearchText();
+    setSlotOverride(undefined);
+
+    if (searchType === SearchTypeEnum.mySlots) {
+      setSearchType(SearchTypeEnum.text);
+    } else {
+      setSearchType(SearchTypeEnum.mySlots);
+      setMySlots();
+    }
+  };
+
+  return (
+    <Tooltip content="Number of slots this validator is leader in the current epoch">
+      <Toggle.Root
+        className={styles.searchButton}
+        onClick={handleClick}
+        pressed={isSelected}
+        disabled={isDisabled}
+      >
+        <Text className={styles.label}>My Slots</Text>
+        <Text>{slotCount}</Text>
+      </Toggle.Root>
+    </Tooltip>
+  );
+}
+```
+
+Displays total count of your leader slots (4 slots per leader group).
+
+#### Skipped Slots Filter
+
+View slots where your validator was leader but skipped processing:
+
+```tsx
+function SkippedSlots({ resetSearchText }: SkippedSlotsProps) {
+  const skippedSlots = useAtomValue(skippedSlotsAtom);
+  const skippedCount = skippedSlots?.length ?? 0;
+
+  const setSkippedSlots = useCallback(() => {
+    const slotStarts = skippedSlots?.map((slot) => slot - (slot % 4));
+    setSearch([...new Set(slotStarts)]);
+  }, [setSearch, skippedSlots]);
+
+  // ... toggle logic
+}
+```
+
+Shows count of skipped slots since validator restart.
+
+#### Late Vote Slots Filter
+
+<Note>
+Late vote tracking is only available for Firedancer validators.
+</Note>
+
+Filter to slots where your validator submitted votes late:
+
+```tsx
+function LateVoteSlots({ resetSearchText }: LateVoteSlotsProps) {
+  const discountedLateVoteSlots = useAtomValue(discountedLateVoteSlotsAtom);
+  const slotCount = discountedLateVoteSlots.size;
+
+  const lateVoteLeaderSlots = useMemo(() => {
+    return Array.from(
+      new Set(
+        [...discountedLateVoteSlots].map((slot) => getSlotGroupLeader(slot)),
+      ),
+    );
+  }, [discountedLateVoteSlots]);
+
+  // ... toggle and filter logic
+}
+```
+
+### Skip Rate
+
+Displays your validator's overall skip rate for the epoch:
+
+```tsx
+function SkipRate() {
+  const skipRate = useAtomValue(skipRateAtom);
+  const skipValue = useMemo(() => {
+    if (!skipRate) return "-";
+    return `${(skipRate.skip_rate * 100).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })}%`;
+  }, [skipRate]);
+
+  return (
+    <Flex justify="center" align="center" gap="1">
+      <Text className={styles.skipRateLabel}>Skip Rate</Text>
+      <Text className={styles.skipRateValue}>{skipValue}</Text>
+    </Flex>
+  );
+}
+```
+
+## Slot List
+
+The main slot list (`src/features/LeaderSchedule/Slots/index.tsx`) provides infinite scroll navigation:
+
+```tsx
+export default function Slots() {
+  const setScroll = useSetAtom(setScrollAtom);
+  const resetScrolls = useSetAtom(resetScrollFuncsAtom);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !e.deltaY) return;
+    setScroll(e.deltaY);
+  };
+
+  // Touch gesture support
+  useEffect(() => {
+    if (!ref.current) return;
+    const hammer = new Hammer(ref.current);
+    hammer.get("pan").set({ direction: Hammer.DIRECTION_VERTICAL });
+
+    hammer.on("panup pandown", (e) => {
+      if (!e.pointerType.includes("touch")) return;
+      setScroll(-(e.changedPointers[0]?.["movementY"] ?? 0) * 5);
+    });
+
+    return () => hammer.destroy();
+  }, [setScroll]);
+
+  return (
+    <Container onWheel={handleWheel} ref={ref}>
+      <Search />
+      <ResetLive />
+      <Flex direction="column" gap="4">
+        <SlotCardList />
+      </Flex>
+    </Container>
+  );
+}
+```
+
+### Scroll Behavior
+
+Custom scroll implementation jumps by leader slot groups:
+
+```tsx
+function getScrollOffset(deltaY: number) {
+  return (
+    Math.max(Math.trunc(Math.abs(deltaY)), 1) *
+    slotsPerLeader *
+    (deltaY > 0 ? -1 : 1)
+  );
+}
+
+const setScrollAtom = (function () {
+  let scrollBuffer = 0;
+  let clearBufferTimeout: NodeJS.Timeout | null = null;
+
+  return atom(null, (get, set, deltaY: number) => {
+    // Scroll changed directions
+    if (deltaY * scrollBuffer < 0) {
+      scrollBuffer = 0;
+    }
+
+    const currentSlot = get(currentSlotAtom);
+    if (currentSlot === undefined) return;
+
+    const slotOverride = get(slotOverrideAtom);
+    const increment = slotOverride && slotOverride < currentSlot ? 200 : 100;
+
+    scrollBuffer += deltaY;
+    if (Math.abs(scrollBuffer) >= increment) {
+      const newBuffer = scrollBuffer % 100;
+      set(setSlotOverrideScrollAtom, getScrollOffset(scrollBuffer / increment));
+      scrollBuffer = newBuffer;
+    }
+
+    clearBufferTimeout = setTimeout(() => (scrollBuffer = 0), 100);
+  });
+})();
+```
+
+## Slot Cards
+
+Slots are grouped into three sections:
+
+### Upcoming Slots
+
+Future leader slots you'll be responsible for:
+
+```tsx src/features/LeaderSchedule/Slots/UpcomingSlotCard.tsx
+export default function UpcomingSlotCard({ slot }: Props) {
+  // Displays:
+  // - Slot number
+  // - Time until slot
+  // - Validator info
+  // - Performance predictions
+}
+```
+
+### Current Slots
+
+Slots currently in progress:
+
+```tsx src/features/LeaderSchedule/Slots/CurrentSlotCard.tsx
+export default function CurrentSlotCard({ slot }: Props) {
+  // Displays:
+  // - Real-time status
+  // - Transaction count
+  // - Processing metrics
+  // - Live performance data
+}
+```
+
+### Past Slots
+
+Completed slots with performance results:
+
+```tsx src/features/LeaderSchedule/Slots/PastSlotCard.tsx
+export function PastSlotCard({ slot }: Props) {
+  // Displays:
+  // - Final transaction count
+  // - Success/failure indicators
+  // - Skip status
+  // - Vote timing
+  // - Performance ranking
+}
+```
+
+## Slot Card List
+
+The slot card list (`src/features/LeaderSchedule/Slots/SlotCardList.tsx`) organizes slots into sections:
+
+```tsx
+export default function SlotCardList() {
+  const currentLeaderSlot = useAtomValue(currentLeaderSlotAtom);
+  const slotOverride = useAtomValue(slotOverrideAtom);
+  const searchLeaderSlots = useAtomValue(searchLeaderSlotsAtom);
+  const epoch = useAtomValue(epochAtom);
+
+  const [cardCount, setCardCount] = useReducer(
+    cardCountReducer,
+    initSlotCardCount,
+  );
+
+  const { upcoming, now, past } = useMemo(
+    () => getSlotCards({
+      cardCount,
+      currentLeaderSlot,
+      epoch,
+      searchLeaderSlots,
+      slotOverride,
+      topSlot,
+    }),
+    [cardCount, currentLeaderSlot, epoch, searchLeaderSlots, slotOverride, topSlot],
+  );
+
+  if (searchLeaderSlots?.length === 0) {
+    return (
+      <Flex justify="center" align="center">
+        <Text>No slots found.</Text>
+      </Flex>
+    );
+  }
+
+  return (
+    <>
+      {!!upcoming.length && (
+        <SlotCardSection sectionName="Upcoming">
+          {upcoming.map((slot) => (
+            <CheckVisibilityCard key={slot} slot={slot}>
+              <UpcomingSlotCard slot={slot} />
+            </CheckVisibilityCard>
+          ))}
+        </SlotCardSection>
+      )}
+
+      {!!now.length && (
+        <SlotCardSection sectionName="Now">
+          {now.map((slot) => (
+            <CheckVisibilityCard key={slot} slot={slot}>
+              <CurrentSlotCard slot={slot} />
+            </CheckVisibilityCard>
+          ))}
+        </SlotCardSection>
+      )}
+
+      {!!past.length && (
+        <SlotCardSection sectionName="Past">
+          {past.map((slot) => (
+            <CheckVisibilityCard key={slot} slot={slot}>
+              <PastSlotCard slot={slot} />
+            </CheckVisibilityCard>
+          ))}
+        </SlotCardSection>
+      )}
+      
+      <PreloadCardList topCardSlotLeader={topCardSlotLeader} />
+    </>
+  );
+}
+```
+
+### Visibility Tracking
+
+The `CheckVisibilityCard` component tracks which cards are visible and dynamically loads more:
+
+```tsx src/features/LeaderSchedule/Slots/CheckVisibility.tsx
+// Monitors card visibility using Intersection Observer
+// Automatically loads more cards when scrolling near the bottom
+// Reduces memory usage by unloading off-screen cards
+```
+
+### Dynamic Card Loading
+
+Cards are loaded incrementally to maintain smooth performance:
+
+```tsx
+const initSlotCardCount = 10;
+const increaseSlotCardCount = 2;
+const decreaseSlotCardCount = 1;
+
+function cardCountReducer(prev: number, action: "increase" | "decrease") {
+  switch (action) {
+    case "increase":
+      return prev + increaseSlotCardCount;
+    case "decrease":
+      return Math.max(1, prev - decreaseSlotCardCount);
+  }
+}
+```
+
+## Reset to Live
+
+The "Reset Live" button returns the view to current slots:
+
+```tsx src/features/LeaderSchedule/Slots/ResetLive.tsx
+// Clears slot override and scroll position
+// Returns to live view centered on current slot
+// Only shown when viewing past/future slots
+```
+
+## Slot Details Integration
+
+Click any slot card to navigate to the [Slot Details](/features/slot-details) page for in-depth analysis:
+
+- Transaction breakdown
+- Compute unit utilization
+- Block timing
+- Execution traces
+
+## Validator Summary
+
+Each slot card includes validator information:
+
+```tsx src/features/LeaderSchedule/Slots/CardValidatorSummary.tsx
+// Displays:
+// - Validator name (from identity)
+// - Public key
+// - Stake amount
+// - Performance indicators
+```
+
+## Performance Considerations
+
+### Preloading
+
+Slot data is preloaded for smooth scrolling:
+
+```tsx src/features/LeaderSchedule/Slots/PreloadCardList.tsx
+// Preloads slot data above and below viewport
+// Prevents loading delays during scroll
+// Configurable preload buffer
+```
+
+### Card Recycling
+
+Cards are recycled as they leave the viewport to minimize memory usage.
+
+### Search Debouncing
+
+Search queries are debounced to prevent excessive API calls:
+
+```tsx
+const debouncedSetSearch = useDebouncedCallback((value: string) => {
+  setSearch(value);
+  setSearchText(value);
+}, 1_000);
+```
+
+## Keyboard and Mouse Controls
+
+- **Mouse wheel**: Scroll through slots
+- **Middle click**: Reset to live view
+- **Touch gestures**: Pan up/down to scroll (mobile)
+
+## URL State Persistence
+
+Search parameters persist in the URL for bookmarking and sharing:
+
+```
+/leaderSchedule?searchType=mySlots
+/leaderSchedule?searchType=text&searchText=validator_name
+/leaderSchedule?searchType=skippedSlots
+```
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Slot Details" icon="magnifying-glass" href="/features/slot-details">
+    Deep dive into individual slot performance metrics
+  </Card>
+  <Card title="Overview Dashboard" icon="gauge" href="/features/overview">
+    Return to main dashboard and live slot timeline
+  </Card>
+</CardGroup>

@@ -1,0 +1,430 @@
+---
+title: Gossip Network
+description: Monitor gossip protocol health, peer connections, and network topology for your Firedancer validator
+---
+
+<Note>
+The Gossip page is only available for Firedancer validators. Frankendancer does not support gossip monitoring.
+</Note>
+
+The Gossip page provides comprehensive monitoring of your validator's participation in Solana's gossip protocol, including peer tracking, message statistics, traffic analysis, and network health metrics.
+
+## Access Control
+
+The gossip route includes automatic client detection and redirect:
+
+```tsx src/routes/gossip.tsx
+export const Route = createFileRoute("/gossip")({
+  component: Gossip,
+  beforeLoad: ({ context, location }) => {
+    if (store.get(clientAtom) === ClientEnum.Frankendancer) {
+      throw redirect({
+        to: "/",
+      });
+    }
+  },
+});
+```
+
+## Page Structure
+
+The Gossip feature (`src/features/Gossip/index.tsx`) organizes network data into several key sections:
+
+```tsx
+export default function Gossip() {
+  const client = useAtomValue(clientAtom);
+  const networkStats = useAtomValue(gossipNetworkStatsAtom);
+  const [dbNetworkStats] = useDebounce(networkStats, 5_000, {
+    leading: true,
+    maxWait: 5_000,
+  });
+
+  const health = networkStats?.health;
+  const storage = networkStats?.storage;
+
+  if (client === ClientEnum.Frankendancer) return;
+  if (!health || !storage || !dbNetworkStats) return;
+
+  return (
+    <Flex gap="30px" direction="column" align="stretch" justify="center" height="100%">
+      {/* Traffic TreeMaps */}
+      <Flex gapX="30px" gapY={rowGap} wrap="wrap">
+        <TrafficTreeMap networkTraffic={dbNetworkStats.ingress} label="Ingress" />
+        <TrafficTreeMap networkTraffic={dbNetworkStats.egress} label="Egress" />
+      </Flex>
+
+      {/* Storage and Message Stats */}
+      <Flex gap="30px" wrap="wrap">
+        <Flex direction="column" flexGrow="1" flexBasis="0" gap={rowGap}>
+          <StorageStatsCharts storage={storage} />
+          <StorageStatsTable storage={storage} />
+        </Flex>
+        <Flex direction="column" flexGrow="1" flexBasis="0" gap={rowGap}>
+          <StakeStatsChart />
+          <MessageStatsTable messages={networkStats.messages} />
+        </Flex>
+      </Flex>
+
+      {/* Health and Peer Data */}
+      <GossipHealth health={health} />
+      <PeerTable />
+    </Flex>
+  );
+}
+```
+
+## Traffic Visualization
+
+### Network Traffic TreeMaps
+
+Interactive treemap visualizations show real-time traffic distribution across gossip message types:
+
+<Frame>
+  <img src="/images/gossip-traffic.png" alt="Gossip traffic treemap" />
+</Frame>
+
+#### Ingress Traffic
+
+Inbound gossip messages from the network:
+- Message type breakdown
+- Byte counts per message type
+- Visual proportions via treemap
+
+#### Egress Traffic
+
+Outbound gossip messages to peers:
+- Message type distribution
+- Bandwidth consumption per type
+- Color-coded message categories
+
+The component uses a 5-second debounce to smooth updates and prevent flickering:
+
+```tsx
+const [dbNetworkStats] = useDebounce(networkStats, 5_000, {
+  leading: true,
+  maxWait: 5_000,
+});
+```
+
+## Storage Statistics
+
+### Storage Charts
+
+Visual representation of gossip storage metrics:
+- Record count over time
+- Memory utilization trends
+- Storage capacity warnings
+
+### Storage Table
+
+Detailed storage metrics including:
+
+| Metric | Description |
+|--------|-------------|
+| **Total Records** | Number of active gossip records |
+| **Memory Used** | Current memory consumption |
+| **Heap Allocated** | Heap memory for gossip data |
+| **Table Capacity** | Maximum storage capacity |
+| **Shred Version** | Current shred version |
+
+## Message Statistics
+
+Comprehensive gossip message tracking:
+
+### Message Types
+
+- **CrdsVote** - Vote account updates
+- **LegacyContactInfo** - Peer contact information (legacy)
+- **ContactInfo** - Peer contact information
+- **NodeInstance** - Node identity instances
+- **LowestSlot** - Lowest available slot advertisements
+- **SnapshotHashes** - Snapshot hash propagation
+- **AccountsHashes** - Accounts hash distribution
+- **EpochSlots** - Epoch slot rosters
+- **DuplicateShred** - Duplicate shred reports
+
+### Message Statistics Table
+
+For each message type, the table displays:
+- **Message count** - Total messages received/sent
+- **Byte count** - Bandwidth consumed
+- **Rate metrics** - Messages per second
+- **Trend indicators** - Sparklines showing recent activity
+
+## Stake Statistics
+
+### Stake Distribution Chart
+
+Visualize stake distribution across the network:
+- Your validator's stake position
+- Stake concentration metrics
+- Network stake health indicators
+- Historical stake trends
+
+## Network Health
+
+### Health Metrics Dashboard
+
+The `GossipHealth` component tracks protocol health:
+
+#### Connection Health
+- Active peer connections
+- Connection success rate
+- Disconnection rate
+- Connection stability score
+
+#### Message Health
+- Message success rate
+- Failed message count
+- Retransmission rate
+- Message latency
+
+#### Protocol Health
+- Protocol version compliance
+- Network partition detection
+- Clock drift warnings
+- Gossip backlog size
+
+### Health Sparklines
+
+Real-time mini charts show trends for key health metrics:
+
+```tsx src/features/Gossip/GossipHealth/GossipHealthSparklines.tsx
+export function GossipHealthSparklines() {
+  // Renders sparkline charts for:
+  // - Connection rate
+  // - Message rate
+  // - Error rate
+  // - Latency
+}
+```
+
+## Peer Table
+
+The peer table (`src/features/Gossip/PeerTable.tsx`) provides a comprehensive, virtualized view of all gossip peers.
+
+### Table Features
+
+#### Virtualization
+
+Uses `react-virtuoso` for efficient rendering of thousands of peers:
+
+```tsx
+<TableVirtuoso
+  className={styles.peerTable}
+  totalCount={size}
+  increaseViewportBy={200}
+  rangeChanged={onRangeChanged}
+  components={components}
+  itemContent={(index) => {
+    const row = rowsCacheRef.current?.get(index.toString());
+    // ... render row
+  }}
+/>
+```
+
+#### Sortable Columns
+
+Click column headers to sort by any metric:
+
+```tsx
+function sort(colId: string) {
+  // Toggle sort direction or switch to new column
+  const newDirection = 
+    colSorting.id === colId 
+      ? -colSorting.direction 
+      : 1;
+  // Update sort state and re-query
+}
+```
+
+#### Resizable Columns
+
+Drag column separators to adjust widths:
+
+```tsx
+const startDrag: PointerEventHandler = (e) => {
+  e.preventDefault();
+  const startX = e.clientX;
+  const startW = colWidths[colId];
+
+  const onMove = (mouseEvent: globalThis.PointerEvent) =>
+    handleResize(colId, startW + (mouseEvent.clientX - startX));
+
+  const onUp = () => {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+  };
+  
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+};
+```
+
+### Peer Columns
+
+| Column | Description | Format |
+|--------|-------------|--------|
+| **Pubkey** | Validator public key | Base58 string |
+| **Name** | Validator name (if available) | String |
+| **Stake** | Validator stake amount | Localized SOL |
+| **Country** | Geographic location | Country code |
+| **IP Addr** | IP address | IPv4/IPv6 |
+| **Ingress Pull** | Pull request ingress bandwidth | Mbps/Gbps |
+| **Ingress Push** | Push message ingress bandwidth | Mbps/Gbps |
+| **Egress Pull** | Pull response egress bandwidth | Mbps/Gbps |
+| **Egress Push** | Push message egress bandwidth | Mbps/Gbps |
+
+### Cell Selection and Copy
+
+Select any cell and press `Ctrl+C` to copy its value:
+
+```tsx
+useKey("c", (e) => {
+  if (e.ctrlKey) {
+    const row = rowsCacheRef.current?.get(
+      selectedCellRef.current.row.toString(),
+    );
+    const value = row?.[selectedCellRef.current.colId];
+    if (value) {
+      copyToClipboard(value.toString());
+      setSelectedCellCopied(true);
+      setTimeout(() => {
+        setSelectedCellCopied(false);
+      }, 500);
+    }
+  }
+});
+```
+
+### Column Specifications
+
+Each column has custom formatting and alignment:
+
+```tsx
+const colSpecs: Record<string, ColSpec> = {
+  Stake: {
+    width: 80,
+    align: "right",
+    format: (value) => {
+      return typeof value === "number"
+        ? Math.abs(Math.trunc(value / lamportsPerSol)).toLocaleString()
+        : value;
+    },
+  },
+  ["Ingress Pull"]: {
+    width: 80,
+    align: "right",
+    format: byteFormat,
+  },
+  // ... more column specs
+};
+```
+
+## Rate Display
+
+Bandwidth rates are displayed with automatic unit conversion:
+
+```tsx src/features/Gossip/RateTableCell.tsx
+function formatBytesAsBits(bytes: number) {
+  const bits = bytes * 8;
+  
+  if (bits >= 1_000_000_000) {
+    return {
+      value: (bits / 1_000_000_000).toFixed(2),
+      unit: "Gbps"
+    };
+  } else if (bits >= 1_000_000) {
+    return {
+      value: (bits / 1_000_000).toFixed(2),
+      unit: "Mbps"
+    };
+  } else if (bits >= 1_000) {
+    return {
+      value: (bits / 1_000).toFixed(2),
+      unit: "Kbps"
+    };
+  }
+  
+  return {
+    value: bits.toFixed(0),
+    unit: "bps"
+  };
+}
+```
+
+## Performance Optimizations
+
+### Debounced Updates
+
+Network statistics use debouncing to prevent excessive re-renders:
+
+```tsx
+const [dbNetworkStats] = useDebounce(networkStats, 5_000, {
+  leading: true,
+  maxWait: 5_000,
+});
+```
+
+### Lazy Loading
+
+The peer table loads data on-demand as you scroll:
+
+```tsx
+const onRangeChanged = useCallback(
+  ({ startIndex, endIndex }: ListRange) => {
+    const start = Math.max(0, startIndex - buffer);
+    const end = Math.min(
+      endIndex + buffer,
+      size > 0 ? size - 1 : endIndex + buffer,
+    );
+    query(start, end);
+  },
+  [query, size],
+);
+```
+
+### Memoization
+
+Expensive calculations are memoized to prevent recalculation:
+
+```tsx
+const components = useMemo(
+  () => getComponents(colIds, colWidths),
+  [colIds, colWidths],
+);
+```
+
+## Troubleshooting
+
+### No Peer Data
+
+If the peer table is empty:
+1. Verify gossip is enabled in your validator config
+2. Check firewall rules allow gossip port (default: 8001)
+3. Ensure sufficient time for peer discovery (30-60 seconds)
+
+### High Message Rates
+
+If seeing excessive message rates:
+1. Check for duplicate shred reports (potential fork)
+2. Verify network connectivity quality
+3. Monitor CPU utilization in [Tile Metrics](/features/overview#live-tile-metrics)
+
+### Storage Warnings
+
+If storage capacity is near limits:
+1. Increase gossip storage configuration
+2. Check for memory leaks in validator
+3. Monitor record expiration rates
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Overview Dashboard" icon="gauge" href="/features/overview">
+    Return to main dashboard and live metrics
+  </Card>
+  <Card title="Architecture" icon="gear" href="/architecture/websocket-integration">
+    Learn about real-time data streaming
+  </Card>
+</CardGroup>

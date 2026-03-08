@@ -1,0 +1,448 @@
+---
+title: 'Entity Schemas'
+description: 'Core data entity schemas defined with Zod for type-safe validation'
+---
+
+# Entity Schemas
+
+The Firedancer Frontend uses Zod schemas to define and validate all data entities received from the validator. These schemas ensure type safety and runtime validation of WebSocket messages.
+
+## Core Entities
+
+### Client
+
+Identifies the validator client type.
+
+<ResponseField name="clientSchema" type="enum">
+  Validator client type: `Frankendancer` or `Firedancer`
+</ResponseField>
+
+```typescript
+export const clientSchema = z.enum(["Frankendancer", "Firedancer"]);
+export const ClientEnum = clientSchema.enum;
+```
+
+### Cluster
+
+Identifies the Solana cluster the validator is connected to.
+
+<ResponseField name="clusterSchema" type="enum">
+  Supported clusters:
+  - `development`
+  - `mainnet-beta`
+  - `devnet`
+  - `testnet`
+  - `pythtest`
+  - `pythnet`
+  - `unknown`
+</ResponseField>
+
+```typescript
+export const clusterSchema = z.enum([
+  "development",
+  "mainnet-beta",
+  "devnet",
+  "testnet",
+  "pythtest",
+  "pythnet",
+  "unknown",
+]);
+```
+
+### Topic Schema
+
+Defines the available WebSocket message topics using discriminated unions.
+
+<ResponseField name="topicSchema" type="discriminatedUnion">
+  Available topics:
+  - `summary` - General validator information
+  - `epoch` - Epoch-related data
+  - `gossip` - Gossip network statistics
+  - `peers` - Peer validator information
+  - `slot` - Slot performance data
+  - `block_engine` - Block engine connection status
+</ResponseField>
+
+```typescript
+export const topicSchema = z.discriminatedUnion("topic", [
+  summaryTopicSchema,
+  epochTopicSchema,
+  gossipTopicSchema,
+  peersTopicSchema,
+  slotTopicSchema,
+  blockEngineTopicSchema,
+]);
+```
+
+## Tile Entities
+
+### Tile Type
+
+Defines all available tile types in the Firedancer validator architecture.
+
+<ResponseField name="tileTypeSchema" type="enum">
+  Core tiles: `sock`, `net`, `quic`, `bundle`, `verify`, `dedup`, `resolv`/`resolh`, `pack`, `execle`/`bank`, `poh`/`pohh`, `shred`, `store`
+  
+  Snapshot tiles: `snapct`, `snapld`, `snapdc`, `snapin`
+  
+  Shred tiles: `netlnk`, `metric`, `ipecho`, `gossvf`, `gossip`, `repair`, `replay`, `execrp`, `tower`, `txsend`, `sign`, `rpc`, `gui`
+  
+  Other tiles: `http`, `plugin`, `cswtch`, `genesi`, `diag`, `event`
+</ResponseField>
+
+```typescript
+export const tileTypeSchema = z.enum([
+  "sock", "net", "quic", "bundle", "verify", "dedup",
+  "resolv", // Firedancer
+  "resolh", // Frankendancer
+  "pack",
+  "execle", // Firedancer
+  "bank",   // Frankendancer
+  "poh",    // Firedancer
+  "pohh",   // Frankendancer
+  "shred", "store",
+  // ... additional tiles
+]);
+```
+
+### Tile Schema
+
+<ResponseField name="tileSchema" type="object">
+  <ResponseField name="kind" type="string" required>
+    Tile type identifier
+  </ResponseField>
+  <ResponseField name="kind_id" type="number" required>
+    Tile instance ID
+  </ResponseField>
+</ResponseField>
+
+```typescript
+export const tileSchema = z.object({
+  kind: z.string(),
+  kind_id: z.number(),
+});
+```
+
+## Slot Entities
+
+### Slot Level
+
+Defines the confirmation level of a slot.
+
+<ResponseField name="slotLevelSchema" type="enum">
+  - `incomplete` - Slot is still being processed
+  - `completed` - Slot processing completed
+  - `optimistically_confirmed` - Slot is optimistically confirmed
+  - `rooted` - Slot has been rooted
+  - `finalized` - Slot is finalized
+</ResponseField>
+
+```typescript
+export const slotLevelSchema = z.enum([
+  "incomplete",
+  "completed",
+  "optimistically_confirmed",
+  "rooted",
+  "finalized",
+]);
+```
+
+### Slot Publish
+
+Core slot performance data published when a slot completes.
+
+<ResponseField name="slotPublishSchema" type="object">
+  <ResponseField name="slot" type="number" required>
+    Slot number
+  </ResponseField>
+  <ResponseField name="mine" type="boolean" required>
+    Whether this validator was the leader
+  </ResponseField>
+  <ResponseField name="skipped" type="boolean" required>
+    Whether the slot was skipped
+  </ResponseField>
+  <ResponseField name="level" type="SlotLevel" required>
+    Confirmation level
+  </ResponseField>
+  <ResponseField name="success_nonvote_transaction_cnt" type="number | null">
+    Count of successful non-vote transactions
+  </ResponseField>
+  <ResponseField name="failed_nonvote_transaction_cnt" type="number | null">
+    Count of failed non-vote transactions
+  </ResponseField>
+  <ResponseField name="success_vote_transaction_cnt" type="number | null">
+    Count of successful vote transactions
+  </ResponseField>
+  <ResponseField name="failed_vote_transaction_cnt" type="number | null">
+    Count of failed vote transactions
+  </ResponseField>
+  <ResponseField name="priority_fee" type="bigint | null">
+    Total priority fees in lamports
+  </ResponseField>
+  <ResponseField name="transaction_fee" type="bigint | null">
+    Total transaction fees in lamports
+  </ResponseField>
+  <ResponseField name="tips" type="bigint | null">
+    Total tips in lamports
+  </ResponseField>
+  <ResponseField name="max_compute_units" type="number | null">
+    Maximum compute units available
+  </ResponseField>
+  <ResponseField name="compute_units" type="number | null">
+    Compute units consumed
+  </ResponseField>
+  <ResponseField name="duration_nanos" type="number | null">
+    Slot duration in nanoseconds
+  </ResponseField>
+  <ResponseField name="completed_time_nanos" type="bigint | null">
+    Completion timestamp in nanoseconds
+  </ResponseField>
+  <ResponseField name="vote_latency" type="number | null">
+    Vote latency in slots
+  </ResponseField>
+</ResponseField>
+
+```typescript
+export const slotPublishSchema = z.object({
+  slot: z.number(),
+  mine: z.boolean(),
+  skipped: z.boolean(),
+  level: slotLevelSchema,
+  success_nonvote_transaction_cnt: z.number().nullable(),
+  failed_nonvote_transaction_cnt: z.number().nullable(),
+  success_vote_transaction_cnt: z.number().nullable(),
+  failed_vote_transaction_cnt: z.number().nullable(),
+  priority_fee: z.coerce.bigint().nullable(),
+  transaction_fee: z.coerce.bigint().nullable(),
+  tips: z.coerce.bigint().nullable(),
+  max_compute_units: z.number().nullable(),
+  compute_units: z.number().nullable(),
+  duration_nanos: z.number().nullable(),
+  completed_time_nanos: z.coerce.bigint().nullable(),
+  vote_latency: z.number().nullable(),
+});
+```
+
+### Slot Response
+
+Complete slot data including performance metrics and transactions.
+
+<ResponseField name="slotResponseSchema" type="object">
+  <ResponseField name="publish" type="SlotPublish" required>
+    Core slot publication data
+  </ResponseField>
+  <ResponseField name="waterfall" type="TxnWaterfall | null">
+    Transaction processing waterfall metrics
+  </ResponseField>
+  <ResponseField name="tile_primary_metric" type="TilePrimaryMetric | null">
+    Primary metrics for each tile
+  </ResponseField>
+  <ResponseField name="tile_timers" type="TsTileTimers[] | null">
+    Tile timing information
+  </ResponseField>
+  <ResponseField name="scheduler_counts" type="SchedulerCounts[] | null">
+    Transaction scheduler statistics
+  </ResponseField>
+  <ResponseField name="transactions" type="SlotTransactions | null">
+    Detailed transaction data
+  </ResponseField>
+  <ResponseField name="limits" type="SlotLimits | null">
+    Slot resource limits and usage
+  </ResponseField>
+  <ResponseField name="scheduler_stats" type="SlotScheduleStats | null">
+    Scheduler statistics
+  </ResponseField>
+</ResponseField>
+
+## Transaction Waterfall
+
+Tracks transaction flow through the validator pipeline.
+
+### Transaction Waterfall In
+
+<ResponseField name="txnWaterfallInSchema" type="object">
+  <ResponseField name="pack_cranked" type="number">
+    Transactions processed from pack queue
+  </ResponseField>
+  <ResponseField name="pack_retained" type="number">
+    Transactions retained in pack queue
+  </ResponseField>
+  <ResponseField name="resolv_retained" type="number">
+    Transactions retained in resolver
+  </ResponseField>
+  <ResponseField name="quic" type="number">
+    Transactions from QUIC
+  </ResponseField>
+  <ResponseField name="udp" type="number">
+    Transactions from UDP
+  </ResponseField>
+  <ResponseField name="gossip" type="number">
+    Transactions from gossip
+  </ResponseField>
+  <ResponseField name="block_engine" type="number">
+    Transactions from block engine
+  </ResponseField>
+</ResponseField>
+
+### Transaction Waterfall Out
+
+<ResponseField name="txnWaterfallOutSchema" type="object">
+  Tracks transaction drop/failure reasons at each stage:
+  
+  <ResponseField name="net_overrun" type="number">Network overrun drops</ResponseField>
+  <ResponseField name="quic_overrun" type="number">QUIC overrun drops</ResponseField>
+  <ResponseField name="verify_failed" type="number">Signature verification failures</ResponseField>
+  <ResponseField name="dedup_duplicate" type="number">Duplicate transactions</ResponseField>
+  <ResponseField name="pack_expired" type="number">Expired in pack queue</ResponseField>
+  <ResponseField name="block_success" type="number">Successfully executed</ResponseField>
+  <ResponseField name="block_fail" type="number">Execution failures</ResponseField>
+  
+  And 20+ additional failure categories...
+</ResponseField>
+
+```typescript
+export const txnWaterfallSchema = z.object({
+  in: txnWaterfallInSchema,
+  out: txnWaterfallOutSchema,
+});
+```
+
+## Epoch Entities
+
+### Epoch Schema
+
+<ResponseField name="epochNewSchema" type="object">
+  <ResponseField name="epoch" type="number" required>
+    Epoch number
+  </ResponseField>
+  <ResponseField name="start_time_nanos" type="string | null">
+    Epoch start time in nanoseconds
+  </ResponseField>
+  <ResponseField name="end_time_nanos" type="string | null">
+    Epoch end time in nanoseconds
+  </ResponseField>
+  <ResponseField name="start_slot" type="number" required>
+    First slot of epoch
+  </ResponseField>
+  <ResponseField name="end_slot" type="number" required>
+    Last slot of epoch
+  </ResponseField>
+  <ResponseField name="excluded_stake_lamports" type="bigint" required>
+    Excluded stake amount
+  </ResponseField>
+  <ResponseField name="staked_pubkeys" type="string[]" required>
+    Array of staked validator pubkeys
+  </ResponseField>
+  <ResponseField name="staked_lamports" type="bigint[]" required>
+    Array of stake amounts
+  </ResponseField>
+  <ResponseField name="leader_slots" type="number[]" required>
+    Array of leader slot assignments
+  </ResponseField>
+</ResponseField>
+
+## Peer Entities
+
+### Peer Update
+
+<ResponseField name="peerUpdateSchema" type="object">
+  <ResponseField name="identity_pubkey" type="string" required>
+    Validator identity public key
+  </ResponseField>
+  <ResponseField name="gossip" type="PeerUpdateGossip | null">
+    Gossip connection information
+  </ResponseField>
+  <ResponseField name="vote" type="PeerUpdateVoteAccount[]" required>
+    Array of vote accounts
+  </ResponseField>
+  <ResponseField name="info" type="PeerUpdateInfo | null">
+    Validator metadata (name, website, etc.)
+  </ResponseField>
+</ResponseField>
+
+## Startup Progress
+
+### Startup Phase
+
+<ResponseField name="startupPhaseSchema" type="enum">
+  - `initializing`
+  - `searching_for_full_snapshot`
+  - `downloading_full_snapshot`
+  - `searching_for_incremental_snapshot`
+  - `downloading_incremental_snapshot`
+  - `cleaning_blockstore`
+  - `cleaning_accounts`
+  - `loading_ledger`
+  - `processing_ledger`
+  - `starting_services`
+  - `halted`
+  - `waiting_for_supermajority`
+  - `running`
+</ResponseField>
+
+### Boot Phase
+
+<ResponseField name="bootPhaseSchema" type="enum">
+  - `joining_gossip` - Joining gossip network
+  - `loading_full_snapshot` - Loading full snapshot
+  - `loading_incremental_snapshot` - Loading incremental snapshot
+  - `catching_up` - Catching up to cluster
+  - `running` - Fully operational
+</ResponseField>
+
+```typescript
+export const bootPhaseSchema = z.enum([
+  "joining_gossip",
+  "loading_full_snapshot",
+  "loading_incremental_snapshot",
+  "catching_up",
+  "running",
+]);
+```
+
+## Gossip Entities
+
+### Gossip Network Stats
+
+<ResponseField name="gossipNetworkStatsSchema" type="object">
+  <ResponseField name="health" type="GossipNetworkHealth" required>
+    Network health metrics
+  </ResponseField>
+  <ResponseField name="ingress" type="GossipNetworkTraffic" required>
+    Incoming traffic statistics
+  </ResponseField>
+  <ResponseField name="egress" type="GossipNetworkTraffic" required>
+    Outgoing traffic statistics
+  </ResponseField>
+  <ResponseField name="storage" type="GossipStorageStats" required>
+    Gossip storage statistics
+  </ResponseField>
+  <ResponseField name="messages" type="GossipMessageStats" required>
+    Message type statistics
+  </ResponseField>
+</ResponseField>
+
+## Schedule Strategy
+
+<ResponseField name="scheduleStrategySchema" type="enum">
+  - `perf` - Performance-optimized
+  - `balanced` - Balanced strategy
+  - `revenue` - Revenue-optimized
+</ResponseField>
+
+```typescript
+export const scheduleStrategySchema = z.enum(["perf", "balanced", "revenue"]);
+```
+
+## Summary Schema
+
+The summary schema is a discriminated union that combines topic and key-value pairs for all validator metrics.
+
+```typescript
+export const summarySchema = z.discriminatedUnion("key", [
+  summaryTopicSchema.extend({ key: z.literal("ping"), value: z.null(), id: z.number() }),
+  summaryTopicSchema.extend({ key: z.literal("version"), value: versionSchema }),
+  summaryTopicSchema.extend({ key: z.literal("cluster"), value: clusterSchema }),
+  // ... 40+ additional key-value pairs
+]);
+```

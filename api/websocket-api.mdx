@@ -1,0 +1,431 @@
+---
+title: 'WebSocket API'
+description: 'Real-time WebSocket communication protocol for Firedancer validator monitoring'
+---
+
+# WebSocket API
+
+The Firedancer Frontend connects to the validator backend via WebSocket to receive real-time updates about validator performance, slot processing, peer information, and more.
+
+## Connection Management
+
+### Connection States
+
+The WebSocket connection can be in one of three states:
+
+```typescript
+export enum SocketState {
+  Disconnected = "disconnected",
+  Connecting = "connecting",
+  Connected = "connected",
+}
+```
+
+### Connection Configuration
+
+The WebSocket connection supports optional Zstandard compression for reduced bandwidth:
+
+```typescript
+const VITE_WEBSOCKET_COMPRESS = import.meta.env.VITE_WEBSOCKET_COMPRESS?.trim();
+
+ws = new WebSocket(
+  url,
+  VITE_WEBSOCKET_COMPRESS === "false" ? undefined : ["compress-zstd"]
+);
+```
+
+### Automatic Reconnection
+
+The connection automatically reconnects with a 3-second delay if disconnected:
+
+```typescript
+const RECONNECT_DELAY = 3_000;
+
+ws.onclose = function onclose() {
+  logDebug("WS", `Disconnected, reconnecting in ${RECONNECT_DELAY}ms`);
+  onConnectionStatusChanged({ socketState: SocketState.Disconnected });
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(connect, RECONNECT_DELAY);
+};
+```
+
+## Message Types
+
+### Inbound Messages (Server → Client)
+
+All messages from the server follow a topic-based structure with discriminated unions for type safety.
+
+#### Message Structure
+
+Every message contains a `topic` field that determines the message type:
+
+```typescript
+{
+  topic: "summary" | "epoch" | "gossip" | "peers" | "slot" | "block_engine",
+  key: string,
+  value: unknown
+}
+```
+
+### Topic: Summary
+
+General validator information and real-time metrics.
+
+<ResponseField name="summary messages" type="object">
+  <ResponseField name="topic" type="literal" required>
+    `"summary"`
+  </ResponseField>
+  <ResponseField name="key" type="string" required>
+    Message key identifier
+  </ResponseField>
+  <ResponseField name="value" type="varies" required>
+    Value depends on the key
+  </ResponseField>
+</ResponseField>
+
+#### Available Keys
+
+| Key | Value Type | Description |
+|-----|------------|-------------|
+| `ping` | `null` | Heartbeat message |
+| `version` | `string` | Validator version |
+| `cluster` | `Cluster` | Connected cluster |
+| `commit_hash` | `string` | Git commit hash |
+| `identity_key` | `string` | Validator identity pubkey |
+| `vote_key` | `string` | Vote account pubkey |
+| `startup_time_nanos` | `bigint` | Startup timestamp |
+| `schedule_strategy` | `ScheduleStrategy` | Block scheduling strategy |
+| `tiles` | `Tile[]` | Tile configuration |
+| `identity_balance` | `bigint` | Identity account balance |
+| `vote_balance` | `bigint` | Vote account balance |
+| `root_slot` | `number` | Current root slot |
+| `optimistically_confirmed_slot` | `number` | Latest optimistically confirmed slot |
+| `completed_slot` | `number` | Latest completed slot |
+| `estimated_slot` | `number` | Current estimated slot |
+| `estimated_slot_duration_nanos` | `number` | Estimated slot duration |
+| `estimated_tps` | `EstimatedTps` | Estimated transactions per second |
+| `live_network_metrics` | `LiveNetworkMetrics` | Real-time network metrics |
+| `live_txn_waterfall` | `LiveTxnWaterfall` | Real-time transaction waterfall |
+| `live_tile_primary_metric` | `LiveTilePrimaryMetric` | Real-time tile metrics |
+| `live_tile_metrics` | `TileMetrics` | Detailed tile metrics |
+| `live_tile_timers` | `number[]` | Tile timing data |
+| `startup_progress` | `StartupProgress` | Startup progress (Frankendancer) |
+| `boot_progress` | `BootProgress` | Boot progress (Firedancer) |
+| `tps_history` | `TpsHistory` | Historical TPS data |
+| `vote_state` | `VoteState` | Voting state |
+| `vote_distance` | `number` | Distance from cluster |
+| `skip_rate` | `SkipRate` | Slot skip rate |
+| `turbine_slot` | `number \| null` | Latest turbine slot |
+| `repair_slot` | `number \| null` | Latest repair slot |
+| `catch_up_history` | `CatchUpHistory` | Catch-up history |
+| `server_time_nanos` | `number` | Server timestamp |
+
+#### Example: Version Message
+
+```json
+{
+  "topic": "summary",
+  "key": "version",
+  "value": "1.18.15"
+}
+```
+
+#### Example: Live Metrics Message
+
+```json
+{
+  "topic": "summary",
+  "key": "estimated_tps",
+  "value": {
+    "total": 3521,
+    "vote": 2100,
+    "nonvote_success": 1400,
+    "nonvote_failed": 21
+  }
+}
+```
+
+### Topic: Epoch
+
+Epoch-related information and leader schedule.
+
+<ResponseField name="epoch messages" type="object">
+  <ResponseField name="topic" type="literal" required>
+    `"epoch"`
+  </ResponseField>
+  <ResponseField name="key" type="literal" required>
+    `"new"`
+  </ResponseField>
+  <ResponseField name="value" type="EpochNew" required>
+    New epoch data
+  </ResponseField>
+</ResponseField>
+
+#### Example: New Epoch Message
+
+```json
+{
+  "topic": "epoch",
+  "key": "new",
+  "value": {
+    "epoch": 612,
+    "start_time_nanos": "1709856000000000000",
+    "end_time_nanos": null,
+    "start_slot": 262080000,
+    "end_slot": 262511999,
+    "excluded_stake_lamports": "0",
+    "staked_pubkeys": ["..."],
+    "staked_lamports": ["..."],
+    "leader_slots": [0, 1, 2, ...]
+  }
+}
+```
+
+### Topic: Slot
+
+Slot processing updates and performance data.
+
+<ResponseField name="slot messages" type="object">
+  <ResponseField name="topic" type="literal" required>
+    `"slot"`
+  </ResponseField>
+  <ResponseField name="key" type="string" required>
+    One of: `update`, `query`, `skipped_history`, `skipped_history_cluster`, `query_rankings`, `live_shreds`, `late_votes_history`
+  </ResponseField>
+  <ResponseField name="value" type="varies" required>
+    Depends on key
+  </ResponseField>
+</ResponseField>
+
+#### Available Keys
+
+| Key | Value Type | Description |
+|-----|------------|-------------|
+| `update` | `SlotResponse` | Real-time slot completion update |
+| `query` | `SlotResponse \| null` | Response to slot query |
+| `skipped_history` | `number[]` | Array of skipped slots (your validator) |
+| `skipped_history_cluster` | `number[]` | Array of skipped slots (cluster-wide) |
+| `query_rankings` | `SlotRankings` | Slot performance rankings |
+| `live_shreds` | `LiveShreds` | Real-time shred progression |
+| `late_votes_history` | `LateVotesHistory` | Historical late vote data |
+
+#### Example: Slot Update Message
+
+```json
+{
+  "topic": "slot",
+  "key": "update",
+  "value": {
+    "publish": {
+      "slot": 262080042,
+      "mine": true,
+      "skipped": false,
+      "level": "completed",
+      "success_nonvote_transaction_cnt": 1523,
+      "failed_nonvote_transaction_cnt": 45,
+      "priority_fee": "1250000000",
+      "compute_units": 42000000,
+      "duration_nanos": 385000000
+    },
+    "waterfall": { /* ... */ },
+    "transactions": { /* ... */ }
+  }
+}
+```
+
+### Topic: Peers
+
+Peer validator updates.
+
+<ResponseField name="peers messages" type="object">
+  <ResponseField name="topic" type="literal" required>
+    `"peers"`
+  </ResponseField>
+  <ResponseField name="key" type="literal" required>
+    `"update"`
+  </ResponseField>
+  <ResponseField name="value" type="PeersUpdate" required>
+    Peer update data with add/update/remove arrays
+  </ResponseField>
+</ResponseField>
+
+#### Example: Peer Update Message
+
+```json
+{
+  "topic": "peers",
+  "key": "update",
+  "value": {
+    "add": [
+      {
+        "identity_pubkey": "...",
+        "gossip": { /* ... */ },
+        "vote": [{ /* ... */ }],
+        "info": {
+          "name": "Validator Name",
+          "website": "https://example.com"
+        }
+      }
+    ],
+    "update": [],
+    "remove": []
+  }
+}
+```
+
+### Topic: Gossip
+
+Gossip network statistics.
+
+<ResponseField name="gossip messages" type="object">
+  <ResponseField name="topic" type="literal" required>
+    `"gossip"`
+  </ResponseField>
+  <ResponseField name="key" type="string" required>
+    One of: `network_stats`, `peers_size_update`, `query_scroll`, `query_sort`, `view_update`
+  </ResponseField>
+</ResponseField>
+
+### Topic: Block Engine
+
+Block engine connection status (for MEV integration).
+
+<ResponseField name="block_engine messages" type="object">
+  <ResponseField name="topic" type="literal" required>
+    `"block_engine"`
+  </ResponseField>
+  <ResponseField name="key" type="literal" required>
+    `"update"`
+  </ResponseField>
+  <ResponseField name="value" type="BlockEngineUpdate" required>
+    Connection status update
+  </ResponseField>
+</ResponseField>
+
+#### Example: Block Engine Update
+
+```json
+{
+  "topic": "block_engine",
+  "key": "update",
+  "value": {
+    "name": "Jito",
+    "url": "https://mainnet.block-engine.jito.wtf",
+    "ip": "10.0.0.1",
+    "status": "connected"
+  }
+}
+```
+
+## Message Handling
+
+### Message Compression
+
+Messages can be received in two formats:
+
+1. **Plain JSON** (string)
+2. **Zstandard-compressed binary** (ArrayBuffer)
+
+```typescript
+ws.onmessage = function onmessage(ev: MessageEvent<unknown>) {
+  const message = ev.data;
+  let json = undefined;
+  
+  if (typeof message === "string") {
+    json = JSON.parse(message);
+  } else if (message instanceof ArrayBuffer) {
+    json = JSON.parse(
+      decoder.decode(zstd.ZstdStream.decompress(new Uint8Array(message)))
+    );
+  }
+  
+  onMessage(json);
+};
+```
+
+### Schema Validation
+
+All incoming messages are validated against Zod schemas:
+
+```typescript
+try {
+  const { topic } = topicSchema.parse(msg);
+  
+  if (topic === "summary") {
+    const { key, value } = summarySchema.parse(msg);
+    // Handle summary message
+  } else if (topic === "slot") {
+    const { key, value } = slotSchema.parse(msg);
+    // Handle slot message
+  }
+  // ...
+} catch (e) {
+  if (e instanceof ZodError) {
+    console.error("Schema validation failed", e.issues);
+  }
+}
+```
+
+### Outbound Messages (Client → Server)
+
+The client can send messages to query specific data:
+
+```typescript
+type ClientMessage = unknown;
+
+function sendMessage(message: ClientMessage) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(message));
+  }
+}
+```
+
+<Info>
+The exact structure of client messages depends on the backend implementation. Common operations include querying historical slot data and requesting specific metrics.
+</Info>
+
+## Connection Status
+
+The connection status is tracked and exposed to the application:
+
+```typescript
+export interface ConnectionStatus {
+  socketState: SocketState;
+}
+```
+
+Components can subscribe to connection status changes to show connection indicators in the UI.
+
+## Performance Optimizations
+
+### Message Throttling
+
+High-frequency updates are throttled to reduce React re-renders:
+
+```typescript
+const estimatedTpsDebounceMs = 1000;
+const waterfallDebounceMs = 500;
+const liveMetricsDebounceMs = 500;
+const liveNetworkMetricsDebounceMs = 1000;
+const liveTileMetricsDebounceMs = 1000;
+```
+
+### Peer Update Buffering
+
+Peer updates are buffered and flushed periodically to reduce state updates:
+
+```typescript
+const peersBuffer = useRef(new Map<string, Peer>());
+const removePeersBuffer = useRef(new Map<string, PeerRemove>());
+
+const dbFlushBuffer = useDebouncedCallback(
+  () => {
+    updatePeers([...peersBuffer.current.values()]);
+    removePeers([...removePeersBuffer.current.values()]);
+    peersBuffer.current.clear();
+    removePeersBuffer.current.clear();
+  },
+  1_000,
+  { maxWait: 1_000 }
+);
+```

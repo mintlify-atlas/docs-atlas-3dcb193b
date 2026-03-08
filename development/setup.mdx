@@ -1,0 +1,111 @@
+---
+title: Development Setup
+description: Set up your local development environment for the Firedancer Frontend
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js 20+** (Recommended: Node 22.12.0 or higher)
+- **npm 10.8.2+**
+
+## Installing Node.js with NVM
+
+We recommend using NVM (Node Version Manager) to manage your Node.js installation:
+
+<Steps>
+  <Step title="Install npm globally">
+    ```bash
+    sudo npm install -g npm@10.8.2
+    ```
+  </Step>
+
+  <Step title="Install NVM">
+    ```bash
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+    ```
+  </Step>
+
+  <Step title="Install and activate Node.js">
+    ```bash
+    nvm install && nvm use
+    ```
+    This will install a Node.js version >= 22.12.0 based on the project's `.nvmrc` file.
+  </Step>
+</Steps>
+
+## Project Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone <repository-url>
+    cd firedancer-frontend
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+  </Step>
+
+  <Step title="Configure environment variables">
+    Copy the example environment file:
+    ```bash
+    cp .env.example .env.development
+    ```
+
+    Edit `.env.development` and configure the following variables:
+    ```bash
+    VITE_WEBSOCKET_URL=ws://your-validator-url
+    VITE_VALIDATOR_CLIENT=Firedancer
+    ```
+  </Step>
+</Steps>
+
+## Running the Development Server
+
+Start the development server with hot module replacement:
+
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:5173` (or another port if 5173 is in use).
+
+<Note>
+  The dev server runs with `NODE_OPTIONS=--max-http-header-size=64000` to accommodate large HTTP headers.
+</Note>
+
+## Development Server Configuration
+
+The development server is configured in `vite.config.ts` with the following settings:
+
+- **Host**: `0.0.0.0` (accessible from network)
+- **Default Port**: 5173
+- **Hot Module Replacement**: Enabled
+- **Type Checking**: Enabled via `vite-plugin-checker`
+- **ESLint**: Real-time linting in development
+
+## Environment Variables
+
+<ParamField path="VITE_WEBSOCKET_URL" type="string">
+  WebSocket URL for connecting to the Firedancer/Frankendancer validator
+</ParamField>
+
+<ParamField path="VITE_VALIDATOR_CLIENT" type="string">
+  Validator client type: `Firedancer` or `Frankendancer`
+</ParamField>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Building" icon="hammer" href="/development/building">
+    Learn how to create production builds
+  </Card>
+  <Card title="Testing" icon="flask" href="/development/testing">
+    Run tests with Vitest
+  </Card>
+</CardGroup>

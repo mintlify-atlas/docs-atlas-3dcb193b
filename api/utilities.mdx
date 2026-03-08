@@ -1,0 +1,483 @@
+---
+title: Utilities
+description: Utility functions for the Firedancer Frontend
+---
+
+## General Utilities (utils.ts)
+
+### getLeaderSlots
+
+Gets all leader slots for a specific validator in an epoch.
+
+```tsx
+function getLeaderSlots(epoch: Epoch, pubkey: string): number[]
+```
+
+**Parameters**
+
+<ParamField path="epoch" type="Epoch" required>
+  The epoch object containing leader schedule data
+</ParamField>
+
+<ParamField path="pubkey" type="string" required>
+  The validator's public key
+</ParamField>
+
+**Returns** Array of slot numbers where the validator is the leader
+
+```tsx
+import { getLeaderSlots } from "./utils";
+
+const mySlots = getLeaderSlots(currentEpoch, myPubkey);
+console.log(`I'm leader for ${mySlots.length} slots`);
+```
+
+### getSlotGroupLeader
+
+Calculates the first slot in a slot group (slots are grouped by `slotsPerLeader`).
+
+```tsx
+function getSlotGroupLeader(slot: number): number
+```
+
+```tsx
+import { getSlotGroupLeader } from "./utils";
+
+const groupLeader = getSlotGroupLeader(12345);
+// If slotsPerLeader is 4, and slot is 12345, returns 12344
+```
+
+### getDurationText
+
+Formats a Luxon Duration into human-readable text.
+
+```tsx
+function getDurationText(
+  duration?: Duration,
+  options?: DurationOptions
+): string
+```
+
+**Options**
+
+<ParamField path="showOnlyTwoSignificantUnits" type="boolean">
+  Limit output to two most significant time units
+</ParamField>
+
+<ParamField path="omitSeconds" type="boolean">
+  Don't include seconds in output
+</ParamField>
+
+```tsx
+import { getDurationText } from "./utils";
+import { Duration } from "luxon";
+
+const duration = Duration.fromObject({ hours: 2, minutes: 30, seconds: 45 });
+console.log(getDurationText(duration)); // "2h 30m 45s"
+console.log(getDurationText(duration, { omitSeconds: true })); // "2h 30m"
+console.log(getDurationText(duration, { showOnlyTwoSignificantUnits: true })); // "2h 30m"
+```
+
+### copyToClipboard
+
+Copies text to the system clipboard with fallback for non-HTTPS environments.
+
+```tsx
+function copyToClipboard(copyValue: string): void
+```
+
+```tsx
+import { copyToClipboard } from "./utils";
+
+copyToClipboard("Text to copy");
+```
+
+### getStake
+
+Calculates the total activated stake for a peer.
+
+```tsx
+function getStake(peer: Peer): bigint
+```
+
+```tsx
+import { getStake } from "./utils";
+
+const totalStake = getStake(peer);
+```
+
+### getSolString
+
+Formats lamport amounts as SOL with appropriate decimal precision.
+
+```tsx
+function getSolString(
+  lamportAmount?: bigint,
+  smallValueDecimals?: number
+): string | undefined
+```
+
+```tsx
+import { getSolString } from "./utils";
+
+const solAmount = getSolString(1_500_000_000n); // "1.5"
+const smallAmount = getSolString(100_000n, 6); // "0.0001"
+```
+
+### getFmtStake
+
+Formats stake amounts with SOL suffix.
+
+```tsx
+function getFmtStake(
+  stake?: bigint,
+  smallValueDecimals?: number
+): string | undefined
+```
+
+```tsx
+import { getFmtStake } from "./utils";
+
+const formatted = getFmtStake(5_000_000_000n); // "5 SOL"
+```
+
+### formatBytes
+
+Formats byte counts into human-readable sizes (B, kB, MB, GB).
+
+```tsx
+function formatBytes(
+  bytes: number,
+  precision?: number,
+  noDecimalForZero?: boolean
+): FormattedBytes
+```
+
+**Returns** Object with `value` and `unit` properties
+
+```tsx
+import { formatBytes } from "./utils";
+
+const { value, unit } = formatBytes(1_500_000);
+console.log(`${value} ${unit}`); // "1.5 MB"
+```
+
+### formatBytesAsBits
+
+Formats bytes as bits (b, Kb, Mb, Gb).
+
+```tsx
+function formatBytesAsBits(bytes: number): {
+  value: number;
+  unit: string;
+}
+```
+
+```tsx
+import { formatBytesAsBits } from "./utils";
+
+const { value, unit } = formatBytesAsBits(125_000);
+console.log(`${value} ${unit}`); // "1 Mb"
+```
+
+### getCountryFlagEmoji
+
+Converts ISO country codes to flag emojis.
+
+```tsx
+function getCountryFlagEmoji(countryCode?: string | null): string | undefined
+```
+
+```tsx
+import { getCountryFlagEmoji } from "./utils";
+
+const flag = getCountryFlagEmoji("US"); // "🇺🇸"
+```
+
+### getClusterColor
+
+Returns the theme color for a given cluster.
+
+```tsx
+function getClusterColor(cluster?: Cluster): string
+```
+
+```tsx
+import { getClusterColor } from "./utils";
+
+const color = getClusterColor("mainnet-beta"); // Returns hex color
+```
+
+### formatTimeNanos
+
+Formats nanosecond timestamps into readable date/time strings.
+
+```tsx
+function formatTimeNanos(
+  time: bigint,
+  formatOptions?: {
+    timezone?: "local" | "utc";
+    showTimezoneName?: boolean;
+  }
+): { inMillis: string; inNanos: string }
+```
+
+```tsx
+import { formatTimeNanos } from "./utils";
+
+const timestamp = 1234567890123456789n;
+const { inMillis, inNanos } = formatTimeNanos(timestamp, { timezone: "utc" });
+console.log(inMillis); // "Feb 13, 2009, 11:31:30.123 UTC"
+console.log(inNanos); // "Feb 13, 2009, 11:31:30.123456789 UTC"
+```
+
+### Transaction Utilities
+
+#### getPaidTxnFees
+
+Calculates total fees paid for a transaction.
+
+```tsx
+function getPaidTxnFees(transactions: SlotTransactions, txnIdx: number): bigint
+```
+
+#### getPaidTxnTips
+
+Gets tips paid for a successful transaction.
+
+```tsx
+function getPaidTxnTips(transactions: SlotTransactions, txnIdx: number): bigint
+```
+
+#### getTxnIncome
+
+Calculates total income (fees + tips) from a transaction.
+
+```tsx
+function getTxnIncome(transactions: SlotTransactions, txnIdx: number): bigint
+```
+
+## Number Utilities (numUtils.ts)
+
+### formatNumber
+
+Formats numbers with fixed decimals or significant digits.
+
+```tsx
+type FormatNumberOptions =
+  | {
+      decimals: number | ((value: number) => number);
+      trailingZeroes?: boolean;
+      decimalsOnZero?: boolean;
+      useSuffix?: boolean;
+    }
+  | {
+      significantDigits: number;
+      exactIntegers?: boolean;
+      trailingZeroes?: boolean;
+      decimalsOnZero?: boolean;
+      useSuffix?: boolean;
+    };
+
+function formatNumber(value: number, opts: FormatNumberOptions): string
+```
+
+**Examples**
+
+```tsx
+import { formatNumber } from "./numUtils";
+
+// Fixed decimals
+formatNumber(1234.5678, { decimals: 2 }); // "1,234.57"
+
+// Significant digits
+formatNumber(0.00012345, { significantDigits: 3 }); // "0.000123"
+
+// With suffix
+formatNumber(1_500_000, { decimals: 1, useSuffix: true }); // "1.5M"
+
+// Dynamic decimals
+formatNumber(123.456, {
+  decimals: (val) => (val < 1 ? 4 : 2),
+}); // "123.46"
+```
+
+### numberSuffix
+
+Returns a reduced value and appropriate suffix (K, M, B, T).
+
+```tsx
+function numberSuffix(value: number): [number, string]
+```
+
+```tsx
+import { numberSuffix } from "./numUtils";
+
+const [value, suffix] = numberSuffix(1_500_000);
+console.log(`${value}${suffix}`); // "1.5M"
+```
+
+### getNumOfDecimals
+
+Counts decimal places needed to represent a number.
+
+```tsx
+function getNumOfDecimals(a: number): number
+```
+
+```tsx
+import { getNumOfDecimals } from "./numUtils";
+
+getNumOfDecimals(0.001); // 3
+getNumOfDecimals(0.0001); // 4
+```
+
+### Formatters
+
+**compactZeroDecimalFormatter** - Compact notation with no decimals
+
+**compactSingleDecimalFormatter** - Compact notation with 1 decimal
+
+```tsx
+import { compactZeroDecimalFormatter, compactSingleDecimalFormatter } from "./numUtils";
+
+compactZeroDecimalFormatter.format(1_500_000); // "2M"
+compactSingleDecimalFormatter.format(1_500_000); // "1.5M"
+```
+
+## Math Utilities (mathUtils.ts)
+
+### logRatio
+
+Calculates the logarithmic ratio of two numbers.
+
+```tsx
+function logRatio(a: number, b: number, base?: number): number
+```
+
+```tsx
+import { logRatio } from "./mathUtils";
+
+const ratio = logRatio(100, 10); // log(100) - log(10) = 2.302...
+```
+
+### logBase
+
+Calculates logarithm with custom base.
+
+```tsx
+function logBase(value: number, base?: number): number
+```
+
+```tsx
+import { logBase } from "./mathUtils";
+
+logBase(8, 2); // 3 (log₂(8))
+```
+
+### safeDivide
+
+Divides numbers while handling floating point precision.
+
+```tsx
+function safeDivide(a: number, b: number): number
+```
+
+## Transaction Utilities (transactionUtils.ts)
+
+### getTxnStateDurations
+
+Calculates durations for different transaction execution phases.
+
+```tsx
+function getTxnStateDurations(
+  transactions: SlotTransactions,
+  txnIdx: number,
+  bundleTxnIdx: number[] | undefined,
+  client: Client
+): {
+  preLoading: bigint;
+  validating: bigint;
+  loading: bigint;
+  execute: bigint;
+  postExecute: bigint;
+}
+```
+
+**Returns** Object with phase durations in nanoseconds
+
+### getTxnState
+
+Determines the current execution state of a transaction at a given timestamp.
+
+```tsx
+function getTxnState(
+  ts: number,
+  transactions: SlotTransactions,
+  txnIdx: number,
+  bundleTxnIdx: number[] | undefined,
+  client: Client
+): TxnState
+```
+
+**Returns** One of: `PRELOADING`, `VALIDATE`, `LOADING`, `EXECUTE`, `POST_EXECUTE`
+
+### getTxnBundleStats
+
+Gets statistics about a transaction bundle.
+
+```tsx
+function getTxnBundleStats(
+  transactions: SlotTransactions,
+  txnIdx: number
+): TxnBundleStats
+```
+
+**Returns**
+
+- `totalCount` - Total transactions in bundle
+- `order` - Position of this transaction in bundle
+- `bundleTxnIdx` - Array of all transaction indices in bundle
+
+## Clock Utilities (clockUtils.ts)
+
+### createClock
+
+Creates a requestAnimationFrame-based clock for synchronized updates.
+
+```tsx
+function createClock(intervalMs: number): {
+  subscribeClock: (fn: (now: number, dt: number) => void) => () => void;
+}
+```
+
+**Example**
+
+```tsx
+import { createClock } from "./clockUtils";
+
+const clock = createClock(16); // ~60fps
+
+const unsubscribe = clock.subscribeClock((now, dt) => {
+  console.log(`Frame at ${now}ms, delta: ${dt}ms`);
+});
+
+// Later...
+unsubscribe();
+```
+
+## Color Utilities (colorUtils.ts)
+
+### hexToRgba
+
+Converts hex color to RGBA format.
+
+```tsx
+function hexToRgba(hex: string, alpha: number): string
+```
+
+```tsx
+import { hexToRgba } from "./colorUtils";
+
+const color = hexToRgba("#ff5500", 0.5); // "rgba(255, 85, 0, 0.5)"
+```

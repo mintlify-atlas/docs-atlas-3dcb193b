@@ -1,0 +1,229 @@
+---
+title: Testing
+description: Testing the Firedancer Frontend with Vitest and React Testing Library
+---
+
+## Testing Stack
+
+The project uses modern testing tools:
+
+- **Vitest**: Fast unit test framework powered by Vite
+- **React Testing Library**: Component testing utilities
+- **jsdom**: Browser environment simulation
+
+## Running Tests
+
+<CodeGroup>
+```bash Run all tests
+npm run test
+```
+
+```bash Watch mode
+npm run test -- --watch
+```
+
+```bash Run with coverage
+npm run test -- --coverage
+```
+
+```bash Run specific test file
+npm run test -- path/to/test.test.tsx
+```
+</CodeGroup>
+
+## Test Configuration
+
+Vitest is configured in `vite.config.ts`:
+
+```typescript vite.config.ts
+test: {
+  environment: "jsdom",
+  env: {
+    TZ: "America/Chicago",
+  },
+}
+```
+
+### Configuration Details
+
+<ParamField path="environment" type="string" default="jsdom">
+  Simulates a browser environment for component testing
+</ParamField>
+
+<ParamField path="env.TZ" type="string" default="America/Chicago">
+  Sets a consistent timezone for date/time testing
+</ParamField>
+
+## Testing Libraries
+
+Installed testing dependencies from `package.json`:
+
+```json package.json
+{
+  "devDependencies": {
+    "vitest": "^3.0.9",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/dom": "^10.4.1",
+    "jsdom": "^27.1.0"
+  }
+}
+```
+
+## Writing Tests
+
+### Basic Component Test
+
+```tsx example.test.tsx
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MyComponent } from './MyComponent';
+
+describe('MyComponent', () => {
+  it('renders correctly', () => {
+    render(<MyComponent />);
+    expect(screen.getByText('Hello World')).toBeInTheDocument();
+  });
+});
+```
+
+### Testing User Interactions
+
+```tsx interactions.test.tsx
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { Button } from './Button';
+
+describe('Button', () => {
+  it('calls onClick when clicked', () => {
+    const handleClick = vi.fn();
+    render(<Button onClick={handleClick}>Click me</Button>);
+    
+    fireEvent.click(screen.getByText('Click me'));
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+});
+```
+
+### Testing Async Components
+
+```tsx async.test.tsx
+import { describe, it, expect } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { AsyncComponent } from './AsyncComponent';
+
+describe('AsyncComponent', () => {
+  it('loads data asynchronously', async () => {
+    render(<AsyncComponent />);
+    
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    
+    await waitFor(() => {
+      expect(screen.getByText('Data loaded')).toBeInTheDocument();
+    });
+  });
+});
+```
+
+## Pre-commit Testing
+
+Tests run automatically on every commit via Husky pre-commit hook:
+
+```bash .husky/pre-commit
+npx lint-staged
+npm run test
+```
+
+<Warning>
+  All tests must pass before a commit can be created. If tests fail, fix them before committing.
+</Warning>
+
+## Test Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use descriptive test names">
+    Test names should clearly describe what is being tested:
+    
+    ```typescript
+    // Good
+    it('displays error message when API call fails', () => {});
+    
+    // Bad
+    it('test1', () => {});
+    ```
+  </Accordion>
+
+  <Accordion title="Test user behavior, not implementation">
+    Focus on what users see and do, not internal component state:
+    
+    ```typescript
+    // Good
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+    
+    // Bad
+    expect(component.state.isValid).toBe(true);
+    ```
+  </Accordion>
+
+  <Accordion title="Use Testing Library queries correctly">
+    Prefer queries in this order:
+    1. `getByRole`
+    2. `getByLabelText`
+    3. `getByPlaceholderText`
+    4. `getByText`
+    5. `getByTestId` (last resort)
+  </Accordion>
+
+  <Accordion title="Clean up after tests">
+    Testing Library automatically cleans up after each test, but if you set up timers or subscriptions, clean them up:
+    
+    ```typescript
+    import { afterEach, vi } from 'vitest';
+    
+    afterEach(() => {
+      vi.clearAllTimers();
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Continuous Integration
+
+In CI/CD pipelines, run tests with:
+
+```bash
+npm ci
+npm run test -- --run --reporter=verbose
+```
+
+<Note>
+  The `--run` flag disables watch mode, which is essential for CI environments.
+</Note>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="jsdom errors">
+    If you encounter jsdom-related errors, ensure you're using the correct environment:
+    
+    ```typescript
+    // At the top of your test file
+    /**
+     * @vitest-environment jsdom
+     */
+    ```
+  </Accordion>
+
+  <Accordion title="Timezone issues">
+    Date/time tests may fail due to timezone differences. The test environment is set to `America/Chicago` by default.
+  </Accordion>
+
+  <Accordion title="Async test timeouts">
+    Increase timeout for slow async operations:
+    
+    ```typescript
+    it('slow operation', async () => {
+      // test code
+    }, 10000); // 10 second timeout
+    ```
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,483 @@
+---
+title: Slot Details
+description: Deep dive into individual slot performance with transaction analysis, compute unit tracking, and execution metrics
+---
+
+The Slot Details page provides comprehensive analysis of individual slot performance, including transaction breakdowns, compute unit utilization, processing timelines, and detailed execution metrics.
+
+## Page Access
+
+The Slot Details route (`src/routes/slotDetails.tsx`) accepts a slot number as a URL parameter:
+
+```tsx
+const searchParamsSchema = z.object({
+  slot: z.number().optional().catch(undefined),
+});
+
+export const Route = createFileRoute("/slotDetails")({
+  validateSearch: searchParamsSchema,
+  component: SlotDetails,
+  beforeLoad: ({ search: { slot } }) =>
+    store.set(baseSelectedSlotAtoms.slot, slot),
+});
+```
+
+### Navigation to Slot Details
+
+You can access slot details in multiple ways:
+
+1. Click any slot in the [Overview slot timeline](/features/overview#slot-timeline)
+2. Click a slot card in the [Leader Schedule](/features/leader-schedule)
+3. Direct URL navigation: `/slotDetails?slot=12345`
+4. Use the slot search feature
+
+## Main Component
+
+The Slot Details feature (`src/features/SlotDetails/index.tsx`) handles slot loading and validation:
+
+```tsx
+export default function SlotDetails() {
+  const selectedSlot = useAtomValue(selectedSlotAtom);
+  const [waitedForDependencies, setWaitedForDependencies] = useState(false);
+  const isNotReady =
+    useAtomValue(baseSelectedSlotAtoms.state) ===
+    SelectedSlotValidityState.NotReady;
+
+  useEffect(() => {
+    if (isNotReady && !waitedForDependencies) {
+      const timeout = setTimeout(() => setWaitedForDependencies(true), 2_500);
+      return () => clearTimeout(timeout);
+    }
+  }, [isNotReady, setWaitedForDependencies, waitedForDependencies]);
+
+  // Wait for dependencies before showing error
+  if (isNotReady && !waitedForDependencies) return null;
+
+  return selectedSlot === undefined ? <SlotSearch /> : <SlotContent />;
+}
+
+function SlotContent() {
+  const slot = useAtomValue(selectedSlotAtom);
+  if (slot === undefined) return;
+
+  return (
+    <Flex direction="column" gap="2" flexGrow="1">
+      <SlotNavigation />
+      <ChartControlsProvider>
+        <DetailedSlotStats />
+        <SlotPerformance />
+        <ComputeUnitsCard />
+        <TransactionBarsCard />
+      </ChartControlsProvider>
+    </Flex>
+  );
+}
+```
+
+## Slot Search
+
+If no slot is specified, the page shows a slot search interface:
+
+```tsx src/features/SlotDetails/SlotSearch.tsx
+// Search by slot number
+// Shows validation errors for invalid slots
+// Provides quick access to recent slots
+```
+
+<Frame>
+  <img src="/images/slot-search.png" alt="Slot search interface" />
+</Frame>
+
+## Slot Navigation
+
+Navigate between adjacent slots using arrow controls:
+
+```tsx src/features/SlotDetails/SlotNavigation.tsx
+// Previous/Next slot buttons
+// Jump to current slot
+// Keyboard shortcuts (arrow keys)
+// Displays slot validity status
+```
+
+## Detailed Slot Statistics
+
+The main statistics card (`src/features/SlotDetails/DetailedSlotStats/index.tsx`) presents three key sections:
+
+```tsx
+export default function DetailedSlotStats() {
+  const selectedSlot = useAtomValue(selectedSlotAtom);
+  const queryResponse = useSlotQueryResponseDetailed(selectedSlot).response;
+  if (!queryResponse?.limits) return <DetailedSlotStatsPlaceholder />;
+
+  return (
+    <>
+      <SlotDetailsHeader />
+      <Card>
+        <Flex gap={sectionGapX} wrap="wrap" flexBasis="0">
+          <ComputeSection />
+          <FeeSection />
+          <PerformanceSection />
+        </Flex>
+      </Card>
+    </>
+  );
+}
+```
+
+### Compute Section
+
+Compute unit (CU) utilization and statistics:
+
+#### Metrics Displayed
+
+| Metric | Description |
+|--------|-------------|
+| **Total CUs Used** | Total compute units consumed in slot |
+| **CU Limit** | Maximum CUs available per block |
+| **Utilization %** | Percentage of available CUs used |
+| **Average CU per TX** | Mean compute units per transaction |
+| **Max CU TX** | Highest CU consumption by single transaction |
+| **CU Efficiency** | Ratio of successful to requested CUs |
+
+```tsx src/features/SlotDetails/DetailedSlotStats/ComputeSection.tsx
+function ComputeSection() {
+  const slotData = useSlotQueryResponseDetailed(selectedSlot).response;
+  const limits = slotData?.limits;
+  
+  const totalCUs = limits?.compute_units_used ?? 0;
+  const cuLimit = limits?.compute_units_limit ?? 48_000_000;
+  const utilizationPct = (totalCUs / cuLimit) * 100;
+  
+  // ... render compute metrics
+}
+```
+
+### Fee Section
+
+Transaction fee analysis and revenue metrics:
+
+#### Metrics Displayed
+
+| Metric | Description |
+|--------|-------------|
+| **Total Fees** | Sum of all transaction fees in slot (lamports) |
+| **Average Fee** | Mean fee per transaction |
+| **Median Fee** | Median transaction fee |
+| **Priority Fees** | Total priority fees collected |
+| **Base Fees** | Total base transaction fees |
+| **Fee Distribution** | Histogram of fee ranges |
+
+```tsx src/features/SlotDetails/DetailedSlotStats/FeeSection.tsx
+function FeeSection() {
+  const slotData = useSlotQueryResponseDetailed(selectedSlot).response;
+  const transactions = slotData?.transactions ?? [];
+  
+  const totalFees = transactions.reduce((sum, tx) => sum + tx.fee, 0);
+  const avgFee = totalFees / transactions.length;
+  
+  // ... render fee metrics
+}
+```
+
+### Performance Section
+
+Slot execution and timing performance:
+
+#### Metrics Displayed
+
+| Metric | Description |
+|--------|-------------|
+| **Transaction Count** | Total transactions in slot |
+| **Success Rate** | Percentage of successful transactions |
+| **Failed TXs** | Count of failed transactions |
+| **Processing Time** | Total time to process slot |
+| **TPS** | Transactions per second for this slot |
+| **Vote Transactions** | Count of vote transactions |
+| **Non-Vote TXs** | Count of non-vote transactions |
+
+```tsx src/features/SlotDetails/DetailedSlotStats/PerformanceSection.tsx
+function PerformanceSection() {
+  const slotData = useSlotQueryResponseDetailed(selectedSlot).response;
+  const transactions = slotData?.transactions ?? [];
+  
+  const successCount = transactions.filter(tx => tx.status === "success").length;
+  const successRate = (successCount / transactions.length) * 100;
+  
+  // ... render performance metrics
+}
+```
+
+## Slot Performance Chart
+
+Reuses the Overview slot performance visualization but focused on the selected slot:
+
+```tsx src/features/Overview/SlotPerformance/index.tsx
+// Interactive timeline chart
+// Shows transaction execution order
+// Color-coded by transaction type
+// Hover for transaction details
+// Click to select transaction
+```
+
+<Frame>
+  <img src="/images/slot-performance-chart.png" alt="Slot performance chart" />
+</Frame>
+
+### Chart Features
+
+- **X-axis**: Time within slot (milliseconds)
+- **Y-axis**: Transaction index
+- **Colors**: 
+  - Green: Successful transactions
+  - Red: Failed transactions
+  - Blue: Vote transactions
+  - Yellow: High-CU transactions
+
+## Compute Units Card
+
+Detailed compute unit breakdown with interactive visualization:
+
+```tsx src/features/Overview/SlotPerformance/ComputeUnitsCard/index.tsx
+export default function ComputeUnitsCard() {
+  return (
+    <Card>
+      <Flex direction="column" gap={headerGap}>
+        <Flex align="center" gap="2">
+          <Text className={styles.headerText}>Compute Units</Text>
+          <CuChartActions />
+        </Flex>
+        <CuChart />
+      </Flex>
+    </Card>
+  );
+}
+```
+
+### CU Chart
+
+The chart (`src/features/Overview/SlotPerformance/ComputeUnitsCard/CuChart.tsx`) visualizes compute unit consumption:
+
+- **Area chart** showing cumulative CU usage
+- **Reference lines** for CU limits
+- **Interactive tooltip** with per-transaction details
+- **Zoom and pan** controls
+- **Toggle annotations** for key events
+
+### Chart Controls
+
+```tsx src/features/Overview/SlotPerformance/ComputeUnitsCard/CuChartActions.tsx
+// Toggle CU limit reference line
+// Reset zoom
+// Export chart data
+// Toggle cumulative/incremental view
+```
+
+### Custom Tooltip
+
+```tsx src/features/Overview/SlotPerformance/ComputeUnitsCard/CuChartTooltip.tsx
+function CuChartTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  
+  const data = payload[0].payload;
+  
+  return (
+    <Card>
+      <Text>Transaction: {data.signature}</Text>
+      <Text>CUs Used: {data.computeUnits.toLocaleString()}</Text>
+      <Text>Cumulative: {data.cumulativeCUs.toLocaleString()}</Text>
+      <Text>Status: {data.status}</Text>
+    </Card>
+  );
+}
+```
+
+## Transaction Bars Card
+
+Visual representation of transaction distribution and timing:
+
+```tsx src/features/Overview/SlotPerformance/TransactionBarsCard/index.tsx
+// Horizontal bar chart of transactions
+// Color-coded by type and status
+// Scaled by compute units or fees
+// Interactive selection
+// Filterable by transaction type
+```
+
+<Frame>
+  <img src="/images/transaction-bars.png" alt="Transaction bars visualization" />
+</Frame>
+
+### Bar Encoding
+
+- **Length**: Compute units consumed (or fee paid)
+- **Color**: Transaction type/status
+- **Vertical position**: Execution order
+- **Opacity**: Success (full) vs. failed (transparent)
+
+## Chart Controls Provider
+
+Shared state for chart interactions:
+
+```tsx src/features/SlotDetails/ChartControlsProvider.tsx
+// Synchronized zoom/pan across charts
+// Shared transaction selection
+// Unified time range
+// Coordinated hover states
+```
+
+## Slot Details Header
+
+Displays slot metadata and status:
+
+```tsx src/features/SlotDetails/DetailedSlotStats/SlotDetailsHeader.tsx
+// Slot number
+// Leader identity
+// Timestamp
+// Block hash
+// Parent slot
+// Slot status (confirmed/finalized/rooted)
+```
+
+## Data Loading States
+
+The page handles various loading and error states:
+
+### Loading State
+
+```tsx
+function DetailedSlotStatsPlaceholder() {
+  return (
+    <Card
+      style={{
+        display: "flex",
+        flexGrow: "1",
+        height: "550px",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Text>Loading Slot Statistics...</Text>
+    </Card>
+  );
+}
+```
+
+### Error States
+
+- **Slot not found**: Invalid or future slot number
+- **Data unavailable**: Slot too old or not yet processed
+- **Network error**: API connection issues
+
+### Validity States
+
+```tsx
+export enum SelectedSlotValidityState {
+  Valid = "valid",
+  NotReady = "not_ready",
+  Invalid = "invalid",
+  TooOld = "too_old",
+}
+```
+
+## Performance Optimizations
+
+### Query Caching
+
+Slot data is cached to prevent redundant API calls:
+
+```tsx
+const queryResponse = useSlotQueryResponseDetailed(selectedSlot).response;
+// Uses jotai atoms for caching
+// Automatic cache invalidation
+// Optimistic updates
+```
+
+### Virtualized Rendering
+
+Large transaction lists use virtualization:
+
+- Only visible transactions rendered
+- Smooth scrolling with thousands of transactions
+- Minimal memory footprint
+
+### Debounced Updates
+
+Chart updates are debounced during navigation:
+
+```tsx
+// Prevents flickering during rapid slot changes
+// Coalesces multiple updates
+// Reduces render cycles
+```
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `←` | Previous slot |
+| `→` | Next slot |
+| `Home` | Jump to current slot |
+| `Esc` | Close details, return to overview |
+
+## URL State Management
+
+Slot selection persists in URL for bookmarking and sharing:
+
+```
+/slotDetails?slot=12345
+```
+
+Navigating to a new slot updates the URL without full page reload.
+
+## Transaction Filtering
+
+Filter transactions by various criteria:
+
+- Transaction type (vote/non-vote)
+- Status (success/failed)
+- Compute unit range
+- Fee range
+- Program interactions
+
+## Export Functionality
+
+Export slot data in multiple formats:
+
+- CSV export for spreadsheet analysis
+- JSON export for programmatic processing
+- Chart image export (PNG/SVG)
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Overview Dashboard" icon="gauge" href="/features/overview">
+    View slot timeline and select slots for analysis
+  </Card>
+  <Card title="Leader Schedule" icon="calendar" href="/features/leader-schedule">
+    Browse all slots in the epoch and navigate to details
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Slot Data Not Loading
+
+1. Verify slot number is valid (within current epoch range)
+2. Check that slot has been processed by the validator
+3. Ensure sufficient time has passed for data collection
+4. Verify API connectivity
+
+### Missing Transaction Data
+
+Some transactions may not have complete data if:
+- Slot was skipped
+- Data retention period expired
+- Transaction failed early in execution
+
+### Chart Performance Issues
+
+If experiencing slow chart rendering:
+1. Try filtering transaction list
+2. Use the transaction bars view instead of detailed chart
+3. Reduce the number of visible annotations
+4. Close other browser tabs to free memory

@@ -1,80 +1,456 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get your Firedancer Frontend dashboard running in minutes
 ---
 
-## Get started in three steps
-
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+Get your Firedancer Frontend dashboard up and running quickly with this streamlined guide.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+Already completed installation? Jump straight to [Running the Dev Server](#running-the-dev-server).
 </Note>
+
+## Before You Begin
+
+Ensure you have:
+
+<CardGroup cols={2}>
+  <Card title="Prerequisites Installed" icon="check">
+    Node.js 20+, npm 10.8.2+, and nvm configured
+  </Card>
+  <Card title="Validator Access" icon="server">
+    A running Firedancer or Frankendancer validator with WebSocket enabled
+  </Card>
+</CardGroup>
+
+Haven't installed yet? See the [Installation Guide](/installation) for detailed setup instructions.
+
+## Quick Setup
+
+<Steps>
+  <Step title="Clone and Install">
+    Get the source code and install dependencies:
+
+    ```bash
+    git clone <repository-url>
+    cd firedancer-frontend
+    npm install
+    ```
+
+    <Accordion title="Installation takes too long?">
+      The first `npm install` downloads hundreds of packages. This is normal and may take 2-5 minutes depending on your connection speed. Subsequent installs use npm's cache and are much faster.
+    </Accordion>
+  </Step>
+
+  <Step title="Configure WebSocket Connection">
+    Create your development environment file:
+
+    ```bash
+    cp .env.example .env.development
+    ```
+
+    Edit `.env.development` to point to your validator:
+
+    ```bash .env.development
+    VITE_WEBSOCKET_URL=ws://localhost:7999/websocket
+    VITE_VALIDATOR_CLIENT=Firedancer
+    ```
+
+    <ParamField path="VITE_WEBSOCKET_URL" type="string" required>
+      WebSocket endpoint of your validator. Common configurations:
+      
+      - **Local validator**: `ws://localhost:7999/websocket`
+      - **Remote validator**: `ws://192.168.1.100:7999/websocket`
+      - **Production** (auto-detect): Leave empty
+    </ParamField>
+
+    <ParamField path="VITE_VALIDATOR_CLIENT" type="enum" required>
+      Set to `Firedancer` or `Frankendancer` to match your validator type.
+    </ParamField>
+
+    <Warning>
+    Make sure your validator's WebSocket server is running and accessible at the specified URL. The dashboard cannot function without an active WebSocket connection.
+    </Warning>
+  </Step>
+
+  <Step title="Start the Development Server">
+    Launch the Vite dev server:
+
+    ```bash
+    npm run dev
+    ```
+
+    You should see output like:
+
+    ```
+    VITE v5.4.8  ready in 523 ms
+
+      ➜  Local:   http://localhost:5173/
+      ➜  Network: http://0.0.0.0:5173/
+      ➜  press h to show help
+    ```
+
+    <Check>
+    The dashboard is now running! Open http://localhost:5173/ in your browser.
+    </Check>
+  </Step>
+</Steps>
+
+## Running the Dev Server
+
+The development server provides hot module replacement (HMR) for instant updates as you edit code.
+
+### Development Scripts
+
+```json package.json
+{
+  "scripts": {
+    "dev": "NODE_OPTIONS=--max-http-header-size=64000 vite",
+    "build": "tsc && vite build",
+    "build:fr": "tsc && VITE_VALIDATOR_CLIENT=Frankendancer vite build",
+    "build:fd": "tsc && VITE_VALIDATOR_CLIENT=Firedancer vite build"
+  }
+}
+```
+
+<CodeGroup>
+```bash Standard Dev Server
+npm run dev
+```
+
+```bash Preview Production Build
+npm run preview
+```
+
+```bash Build for Production
+npm run build
+```
+</CodeGroup>
+
+### Dev Server Features
+
+- **Hot Module Replacement**: Changes reflect instantly without page refresh
+- **TypeScript Type Checking**: Real-time type errors in the terminal
+- **Automatic Port Selection**: If port 5173 is busy, Vite picks the next available port
+- **Network Access**: Access from other devices on your network via the Network URL
+
+<Accordion title="Change the default port">
+If port 5173 conflicts with another service, modify `vite.config.ts`:
+
+```ts vite.config.ts
+export default defineConfig({
+  server: {
+    port: 3000  // or any port you prefer
+  }
+})
+```
+</Accordion>
+
+## Connecting to Your Validator
+
+The dashboard establishes a WebSocket connection on load via the `ConnectionProvider` component.
+
+### Connection Flow
+
+```tsx src/api/ws/ConnectionProvider.tsx
+const VITE_WEBSOCKET_URL = import.meta.env.PROD
+  ? null
+  : (import.meta.env.VITE_WEBSOCKET_URL as string)?.trim();
+
+// connect to current host via websocket
+const websocketUrl = VITE_WEBSOCKET_URL
+  ? VITE_WEBSOCKET_URL
+  : `${window.location.protocol.startsWith("https") ? "wss" : "ws"}://${window.location.hostname}:${window.location.port}/websocket`;
+```
+
+**Development mode**: Uses `VITE_WEBSOCKET_URL` from `.env.development`  
+**Production mode**: Auto-detects from the browser's current location
+
+### Connection States
+
+The dashboard displays different states based on WebSocket status:
+
+| State | Description | UI Indicator |
+|-------|-------------|--------------|
+| **Connecting** | Establishing WebSocket connection | Startup progress screen |
+| **Connected** | Active data stream from validator | Green status indicator |
+| **Reconnecting** | Temporary disconnection, retrying | Yellow status indicator |
+| **Disconnected** | No connection to validator | Red status indicator with error |
+
+### Troubleshooting Connection Issues
+
+<AccordionGroup>
+  <Accordion title="Connection refused error">
+    **Symptom**: WebSocket error in browser console: `WebSocket connection failed`
+
+    **Solutions**:
+    1. Verify your validator is running: `systemctl status firedancer`
+    2. Check the WebSocket URL in `.env.development` matches your validator's config
+    3. Ensure firewall allows the connection: `sudo ufw allow 7999/tcp`
+    4. Test the endpoint directly: `curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" http://localhost:7999/websocket`
+  </Accordion>
+
+  <Accordion title="Stuck on startup progress screen">
+    **Symptom**: Dashboard shows loading screen indefinitely
+
+    **Causes**:
+    - Validator is still catching up
+    - WebSocket connected but not receiving data
+    - CORS policy blocking connection
+
+    **Solutions**:
+    1. Check browser DevTools Console for errors
+    2. Verify validator logs show WebSocket server running
+    3. Try hard refresh: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (Mac)
+    4. Clear browser cache and restart dev server
+  </Accordion>
+
+  <Accordion title="Auto-disconnect after a few seconds">
+    **Symptom**: Connects successfully but disconnects shortly after
+
+    **Possible causes**:
+    - Validator WebSocket timeout too aggressive
+    - Network proxy interfering with connection
+    - Validator resource constraints
+
+    **Solutions**:
+    1. Check validator resource usage (CPU, memory)
+    2. Review validator logs for WebSocket errors
+    3. Try connecting from the same machine as the validator: `ws://localhost:7999/websocket`
+  </Accordion>
+</AccordionGroup>
+
+## First Look at the UI
+
+Once connected, you'll see the Overview dashboard with real-time validator metrics.
+
+### Main Dashboard Sections
+
+<Frame>
+  <img src="/images/dashboard-overview.png" alt="Firedancer Frontend Overview Dashboard" />
+</Frame>
+
+**Header & Navigation** (`src/features/Header/index.tsx`, `src/features/Navigation/index.tsx`)
+- Logo and client branding (Firedancer or Frankendancer)
+- Connection status indicator
+- Main navigation menu
+
+**Slot Timeline** (`src/features/Overview/SlotTimeline/index.tsx`)
+Visualizes your validator's slot progression with color-coded states:
+- Storage, Root, Vote, Processed slots
+- Repair and Turbine operations
+- Next leader slot countdown
+
+**Status Cards**
+Four information cards showing:
+- **Epoch**: Current epoch progress and time remaining
+- **Slot Status**: Current slot and vote status
+- **Validators**: Network validator count and stake
+- **Transactions**: Real-time TPS with sparkline
+
+**Performance Panels**
+- **Shreds Progression** (Firedancer only): Shred reception and processing timeline
+- **Slot Performance**: Interactive slot analysis with drill-down
+- **Live Network Metrics**: Ingress/egress bandwidth by protocol (QUIC, Gossip, Repair)
+- **Live Tile Metrics**: Per-tile CPU, utilization, and backpressure stats
+
+### Navigation Menu
+
+Access different dashboard views:
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="chart-line">
+    Main monitoring dashboard (default view)
+  </Card>
+  <Card title="Slot Details" icon="chart-simple">
+    Deep dive into individual slot performance
+  </Card>
+  <Card title="Leader Schedule" icon="calendar">
+    View your upcoming leader slots
+  </Card>
+  <Card title="Gossip" icon="network-wired">
+    Monitor gossip network health and peers
+  </Card>
+</CardGroup>
+
+Navigation is implemented with TanStack Router:
+
+```tsx src/routes/__root.tsx
+export const Route = createRootRoute({
+  component: Root,
+});
+
+function Root() {
+  return (
+    <>
+      <Toast />
+      <StartupProgress>
+        <Header />
+        <Flex className="app-width-container">
+          <Navigation />
+          <Outlet />
+        </Flex>
+      </StartupProgress>
+    </>
+  );
+}
+```
+
+## Exploring Dashboard Features
+
+### Slot Timeline Interaction
+
+Click any slot state in the timeline to filter the slot list in the left navigation panel.
+
+<Steps>
+  <Step title="Select a Slot State">
+    Click a colored bar in the timeline (e.g., "Processed")
+  </Step>
+  
+  <Step title="View Filtered Slots">
+    Left navigation updates to show only slots matching that state
+  </Step>
+  
+  <Step title="Click a Slot">
+    Select a specific slot number to see detailed metrics
+  </Step>
+</Steps>
+
+### Viewing Slot Details
+
+Click any slot number in the left panel to drill down into comprehensive slot analysis:
+
+- Transaction-level breakdown
+- Compute unit usage per transaction
+- Fee analysis (priority fees, base fees, tips)
+- Execution timings
+- Scheduler statistics
+
+See [Slot Details](/features/slot-details) for complete documentation.
+
+### Monitoring Tile Performance
+
+The Live Tile Metrics table shows real-time performance for Firedancer's tile-based architecture:
+
+```tsx src/features/Overview/LiveTileMetrics/index.tsx
+function TableRow({ tile, liveTileMetrics, idx }: TableRowProps) {
+  const alive = liveTileMetrics.alive[idx];
+  const cpu = liveTileMetrics.last_cpu[idx];
+  const inBackpressure = liveTileMetrics.in_backp[idx];
+  
+  // Tile timer percentages
+  const timers = liveTileMetrics.timers[idx];
+  const hKeepPct = timers[0] + timers[1] + timers[2];
+  const waitPct = timers[6];
+  const backpPct = timers[5];
+  const workPct = timers[3] + timers[4] + timers[7];
+
+  // ...
+}
+```
+
+**Key metrics to watch**:
+- **Utilization**: Should be below 80% for healthy operation
+- **Backpressure %**: High values (>10%) indicate bottlenecks
+- **Involuntary Context Switches**: Rapid increases suggest CPU contention
+- **Status**: Any "Dead" tiles require immediate attention
+
+### Network Traffic Analysis
+
+The Live Network Metrics panel breaks down ingress/egress traffic by protocol:
+
+- **QUIC**: Transaction data from clients and other validators
+- **Gossip**: Cluster coordination and peer discovery
+- **Repair**: Shred recovery operations
+
+Monitor these to identify:
+- Bandwidth saturation
+- Unusual traffic patterns
+- Protocol-specific issues
+
+### Gossip Network Health
+
+Navigate to **Gossip** (`src/routes/gossip.tsx`) to view:
+
+- Connected peer list with stake information
+- Push/pull message statistics
+- Traffic throughput per peer
+- Message success/failure rates
+
+This is crucial for diagnosing network connectivity issues.
+
+## Next Steps
+
+Now that your dashboard is running, explore these topics:
+
+<CardGroup cols={2}>
+  <Card title="Overview Dashboard" icon="chart-line" href="/features/overview">
+    Comprehensive guide to all Overview dashboard components
+  </Card>
+  <Card title="Slot Details" icon="magnifying-glass-chart" href="/features/slot-details">
+    Deep dive into transaction analysis and slot performance
+  </Card>
+  <Card title="Leader Schedule" icon="calendar-days" href="/features/leader-schedule">
+    Understand and track your leader slot schedule
+  </Card>
+  <Card title="Architecture Overview" icon="diagram-project" href="/architecture/overview">
+    Learn how the dashboard's WebSocket integration and state management work
+  </Card>
+  <Card title="State Management" icon="atom" href="/architecture/state-management">
+    Explore Jotai atoms and data flow patterns
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="/development/contributing">
+    Contribute improvements to Firedancer Frontend
+  </Card>
+</CardGroup>
+
+## Quick Reference
+
+### Common Commands
+
+```bash
+# Start development server
+npm run dev
+
+# Run type checking
+npx tsc --noEmit
+
+# Run linter
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+
+# Run tests
+npm test
+```
+
+### Environment Variables
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `VITE_WEBSOCKET_URL` | Validator WebSocket endpoint | `ws://localhost:7999/websocket` |
+| `VITE_VALIDATOR_CLIENT` | Client type (Firedancer/Frankendancer) | `Firedancer` |
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `h` | Show Vite dev server help |
+| `r` | Restart dev server |
+| `u` | Show server URL |
+| `o` | Open in browser |
+| `q` | Quit dev server |
+
+### Useful Links
+
+- [Vite Documentation](https://vitejs.dev/)
+- [React Documentation](https://react.dev/)
+- [TanStack Router](https://tanstack.com/router)
+- [Jotai State Management](https://jotai.org/)
+- [Radix UI Components](https://www.radix-ui.com/)

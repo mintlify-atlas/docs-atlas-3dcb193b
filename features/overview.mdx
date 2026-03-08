@@ -1,0 +1,318 @@
+---
+title: Overview Dashboard
+description: Real-time monitoring and performance metrics for your Firedancer/Frankendancer validator
+---
+
+The Overview dashboard is the main monitoring interface for Firedancer Frontend. It provides live metrics, slot progression tracking, network performance data, and tile-level telemetry all in one unified view.
+
+## Dashboard Components
+
+The Overview page (`src/routes/index.tsx`) renders the main `Overview` component which orchestrates multiple data visualization cards and charts:
+
+```tsx src/features/Overview/index.tsx
+export default function Overview() {
+  return (
+    <Flex direction="column" gap="4" flexGrow="1">
+      <SlotTimeline />
+      <Flex gap="16px" align="stretch" wrap="wrap">
+        <EpochCard />
+        <SlotStatusCard />
+        <ValidatorsCard />
+        <TransactionsCard />
+      </Flex>
+      <ShredsProgression />
+      <SlotPerformance />
+      <LiveNetworkMetrics />
+      <LiveTileMetrics />
+    </Flex>
+  );
+}
+```
+
+## Slot Timeline
+
+The Slot Timeline visualizes your validator's slot progression with color-coded bars representing different slot states:
+
+- **Storage Slot** - Persisted to disk
+- **Root Slot** - Confirmed as finalized
+- **Voted Slot** - Validator has voted
+- **Processed Slot** - Execution completed
+- **Repair Slot** - Undergoing repair
+- **Turbine Slot** - Receiving shreds via Turbine
+- **Confirmed Slot** - Optimistically confirmed
+- **Next Leader Slot** - Your upcoming leader slot
+
+<Frame>
+  <img src="/images/slot-timeline.png" alt="Slot Timeline visualization" />
+</Frame>
+
+The timeline dynamically adjusts its scale based on the distance between slots and includes a progress indicator showing time until your next leader slot.
+
+### Implementation Details
+
+The timeline component (`src/features/Overview/SlotTimeline/index.tsx`) uses real-time slot atoms to calculate positions:
+
+```tsx
+const storageSlot = useAtomValue(storageSlotAtom);
+const rootSlot = useAtomValue(rootSlotAtom);
+const voteSlot = useAtomValue(voteSlotAtom);
+const turbineSlot = useAtomValue(turbineSlotAtom);
+const replaySlot = useAtomValue(completedSlotAtom);
+const optimisticallyConfirmedSlot = useAtomValue(optimisticallyConfirmedSlotAtom);
+const nextLeaderSlot = useAtomValue(nextLeaderSlotAtom);
+```
+
+## Status Cards
+
+### Epoch Card
+
+Displays current epoch information and progress:
+
+- Current epoch number
+- Time remaining until next epoch
+- Visual progress bar showing epoch completion percentage
+
+```tsx src/features/Overview/EpochCard/index.tsx
+function NextEpochTimeText() {
+  const slot = useAtomValue(currentSlotAtom);
+  const epoch = useAtomValue(epochAtom);
+  const slotDuration = useAtomValue(slotDurationAtom);
+
+  const nextEpochText = useMemo(() => {
+    if (epoch === undefined || slot === undefined) return "";
+    
+    const endDiffMs = (epoch.end_slot - slot) * slotDuration;
+    const durationLeft = Duration.fromMillis(endDiffMs).rescale();
+    return getDurationText(durationLeft);
+  }, [epoch, slot, slotDuration]);
+
+  // ... progress calculation
+}
+```
+
+### Slot Status Card
+
+Shows real-time slot and voting status:
+
+- Current slot number
+- Time until next leader slot with countdown
+- Vote status (voting, non-voting, or delinquent)
+- Vote distance (how many slots behind)
+
+```tsx src/features/Overview/StatusCard/index.tsx
+function VotingStatusText() {
+  const voteState = useAtomValue(voteStateAtom);
+
+  let voteColor = regularTextColor;
+  if (voteState === "voting") {
+    voteColor = successColor;
+  } else if (voteState === "non-voting") {
+    voteColor = mySlotsColor;
+  } else if (voteState === "delinquent") {
+    voteColor = failureColor;
+  }
+
+  return (
+    <CardStat
+      label="Vote Status"
+      value={voteState ?? "Unknown"}
+      valueColor={voteColor}
+    >
+      <VoteDistanceText />
+    </CardStat>
+  );
+}
+```
+
+### Validators Card
+
+Provides validator count and stake information:
+
+- Total validator count on the network
+- Validator stake distribution
+- Your validator's stake position
+
+### Transactions Card
+
+Real-time transaction throughput visualization:
+
+- Transaction rate chart (1-minute window)
+- Total transaction counts
+- Success/failure rates
+- Live sparkline showing TPS over time
+
+## Shreds Progression
+
+<Note>
+Shreds Progression is only available for Firedancer validators (not Frankendancer).
+</Note>
+
+Visualizes shred reception and processing in real-time with a detailed chart showing:
+
+- Shred reception timeline
+- Processing latency
+- Gap detection
+- Recovery operations
+
+```tsx src/features/Overview/ShredsProgression/index.tsx
+export default function ShredsProgression() {
+  const client = useAtomValue(clientAtom);
+
+  if (client !== ClientEnum.Firedancer) return;
+
+  return (
+    <Card style={{ padding: "10px 13px 10px 10px" }}>
+      <Flex direction="column" gap="4">
+        <Flex gapX="15px" gapY="2" align="center" wrap="wrap">
+          <CardHeader text="Shreds" />
+          <ShredsChartLegend />
+        </Flex>
+        <ShredsChart
+          height="400px"
+          chartId="overview-shreds-chart"
+          isOnStartupScreen={false}
+        />
+      </Flex>
+    </Card>
+  );
+}
+```
+
+## Slot Performance
+
+Interactive slot performance analysis with drill-down capabilities:
+
+- Click any slot to view detailed metrics
+- Transaction distribution visualization
+- Compute unit utilization
+- Processing timelines
+
+See [Slot Details](/features/slot-details) for more information on detailed slot analysis.
+
+## Live Network Metrics
+
+Real-time network traffic monitoring broken down by protocol:
+
+### Ingress Traffic
+
+- QUIC ingress
+- Gossip ingress
+- Repair ingress
+- Total ingress bandwidth
+
+### Egress Traffic
+
+- QUIC egress
+- Gossip egress
+- Repair egress
+- Total egress bandwidth
+
+```tsx src/features/Overview/LiveNetworkMetrics/index.tsx
+export default function LiveNetworkMetrics() {
+  const liveNetworkMetrics = useAtomValue(liveNetworkMetricsAtom);
+  if (!liveNetworkMetrics) return;
+
+  return (
+    <Flex wrap="wrap" gap="4">
+      <NetworkMetricsCard metrics={liveNetworkMetrics.ingress} type="Ingress" />
+      <NetworkMetricsCard metrics={liveNetworkMetrics.egress} type="Egress" />
+    </Flex>
+  );
+}
+```
+
+Each protocol row displays:
+- Current bandwidth utilization
+- Visual utilization bar
+- 1-minute history sparkline
+- Formatted bandwidth values (Mbps/Gbps)
+
+## Live Tile Metrics
+
+<Note>
+Tile metrics are specific to Firedancer's tile-based architecture.
+</Note>
+
+Comprehensive tile-level telemetry table showing:
+
+| Metric | Description |
+|--------|-------------|
+| **Tile** | Tile kind and ID (e.g., `net:0`, `quic:1`) |
+| **CPU** | Assigned CPU core |
+| **Status** | Live/Dead status indicator |
+| **Min Faults** | Minor page fault count |
+| **Maj Faults** | Major page fault count |
+| **Involuntary Context Switches** | System-forced context switches with delta |
+| **Voluntary Context Switches** | Tile-initiated context switches with delta |
+| **In Backpressure** | Whether tile is experiencing backpressure |
+| **Backpressure Count** | Total backpressure events with delta |
+| **Utilization** | Real-time utilization bar chart |
+| **Utilization (1m)** | 1-minute utilization sparkline |
+| **Housekeeping %** | Time spent on housekeeping tasks |
+| **Waiting %** | Idle wait time percentage |
+| **Backpressure %** | Time spent in backpressure |
+| **Working %** | Active processing time percentage |
+
+```tsx src/features/Overview/LiveTileMetrics/index.tsx
+function TableRow({ tile, liveTileMetrics, idx }: TableRowProps) {
+  const alive = liveTileMetrics.alive[idx];
+  const nivcsw = liveTileMetrics.nivcsw[idx];
+  const nvcsw = liveTileMetrics.nvcsw[idx];
+  const inBackpressure = liveTileMetrics.in_backp[idx];
+  const backPressureCount = liveTileMetrics.backp_msgs[idx];
+  const cpu = liveTileMetrics.last_cpu[idx];
+  
+  // Tile timer percentages
+  const timers = liveTileMetrics.timers[idx];
+  const hKeepPct = timers[0] + timers[1] + timers[2];
+  const waitPct = timers[6];
+  const backpPct = timers[5];
+  const workPct = timers[3] + timers[4] + timers[7];
+
+  // ... render table row
+}
+```
+
+The delta values for context switches and backpressure count are color-coded:
+- Green (1-10): Low increase
+- Yellow (11-100): Moderate increase
+- Red (101+): High increase
+
+## Performance Considerations
+
+### Data Update Rates
+
+Different components update at different intervals to balance responsiveness with performance:
+
+- **Slot Timeline**: Real-time updates on slot changes
+- **Tile Metrics**: 300ms rolling average updates
+- **Network Metrics**: 500ms updates with 1-second EMA smoothing
+- **Transaction Chart**: 1-second tick intervals
+
+### Debouncing
+
+Network statistics use debouncing to prevent UI thrashing:
+
+```tsx
+const [dbNetworkStats] = useDebounce(networkStats, 5_000, {
+  leading: true,
+  maxWait: 5_000,
+});
+```
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Slot Details" icon="chart-line" href="/features/slot-details">
+    Deep dive into individual slot performance and transaction analysis
+  </Card>
+  <Card title="Leader Schedule" icon="calendar" href="/features/leader-schedule">
+    View and manage your validator's leader slot schedule
+  </Card>
+  <Card title="Gossip Network" icon="network-wired" href="/features/gossip">
+    Monitor gossip protocol health and peer connections
+  </Card>
+  <Card title="Startup Progress" icon="rocket" href="/features/startup-progress">
+    Track validator initialization and catchup progress
+  </Card>
+</CardGroup>

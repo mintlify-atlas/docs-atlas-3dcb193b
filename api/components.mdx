@@ -1,0 +1,381 @@
+---
+title: Components
+description: Reusable React components for the Firedancer Frontend
+---
+
+## Card
+
+A container component that provides consistent styling for content blocks.
+
+<ParamField path="hideChildren" type="boolean">
+  When true, hides all children elements
+</ParamField>
+
+<ParamField path="isNarrow" type="boolean" default="false">
+  When true, applies narrow styling to the card
+</ParamField>
+
+<ParamField path="...props" type="HTMLAttributes<HTMLDivElement>">
+  All standard HTML div attributes are supported
+</ParamField>
+
+```tsx
+import Card from "./components/Card";
+
+function MyComponent() {
+  return (
+    <Card isNarrow>
+      <h2>Card Title</h2>
+      <p>Card content goes here</p>
+    </Card>
+  );
+}
+```
+
+## CardHeader
+
+A header component for displaying titles within cards.
+
+<ParamField path="text" type="string" required>
+  The header text to display
+</ParamField>
+
+```tsx
+import CardHeader from "./components/CardHeader";
+
+function MyCard() {
+  return <CardHeader text="Performance Metrics" />;
+}
+```
+
+## CardStat
+
+Displays a labeled statistic with customizable styling and optional append values.
+
+<ParamField path="label" type="string" required>
+  The label describing the statistic
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  The main value to display
+</ParamField>
+
+<ParamField path="valueColor" type="string" required>
+  CSS color for the value text
+</ParamField>
+
+<ParamField path="appendValue" type="string">
+  Optional text to append after the value
+</ParamField>
+
+<ParamField path="large" type="boolean">
+  When true, displays the value in larger font (28px)
+</ParamField>
+
+<ParamField path="style" type="CSSProperties">
+  Custom styles for the container
+</ParamField>
+
+<ParamField path="valueStyle" type="CSSProperties">
+  Custom styles for the value text
+</ParamField>
+
+```tsx
+import CardStat from "./components/CardStat";
+
+function StatsDisplay() {
+  return (
+    <CardStat
+      label="Transaction Count"
+      value="1,234"
+      valueColor="#00ff00"
+      appendValue="TPS"
+      large
+    />
+  );
+}
+```
+
+## StatusIcon
+
+Displays visual status indicators for slots with different states (processing, optimistically confirmed, rooted, etc.).
+
+<ParamField path="slot" type="number" required>
+  The slot number to display status for
+</ParamField>
+
+<ParamField path="isCurrent" type="boolean" required>
+  Whether this is the current active slot
+</ParamField>
+
+<ParamField path="size" type="'small' | 'large'" required>
+  Icon size variant
+</ParamField>
+
+```tsx
+import { StatusIcon } from "./components/StatusIcon";
+
+function SlotDisplay({ slot, isCurrent }: { slot: number; isCurrent: boolean }) {
+  return <StatusIcon slot={slot} isCurrent={isCurrent} size="large" />;
+}
+```
+
+### Additional StatusIcon Exports
+
+**LoadingIcon** - Displays an animated circular progress indicator for current slots
+
+**PlaceholderIcon** - Empty placeholder for incomplete slots
+
+**SkippedIcon** - Icon indicating a skipped slot
+
+```tsx
+import { LoadingIcon, PlaceholderIcon, SkippedIcon } from "./components/StatusIcon";
+
+<LoadingIcon size="small" />
+<PlaceholderIcon size="large" />
+<SkippedIcon size="small" />
+```
+
+## CopyButton
+
+A button component that copies text to the clipboard and shows visual feedback.
+
+<ParamField path="value" type="string">
+  The text to copy when clicked. If undefined, renders children without copy functionality
+</ParamField>
+
+<ParamField path="color" type="string">
+  Color for the copy icon
+</ParamField>
+
+<ParamField path="size" type="string | number">
+  Height of the icon
+</ParamField>
+
+<ParamField path="hideIconUntilHover" type="boolean">
+  When true, only shows the copy icon on hover
+</ParamField>
+
+<ParamField path="className" type="string">
+  Additional CSS classes
+</ParamField>
+
+```tsx
+import CopyButton from "./components/CopyButton";
+
+function PublicKeyDisplay({ pubkey }: { pubkey: string }) {
+  return (
+    <CopyButton value={pubkey} hideIconUntilHover>
+      {pubkey.slice(0, 8)}...{pubkey.slice(-8)}
+    </CopyButton>
+  );
+}
+```
+
+## Dropdown
+
+A dropdown menu component using Radix UI primitives.
+
+<ParamField path="dropdownMenu" type="ReactNode" required>
+  The content to display in the dropdown
+</ParamField>
+
+<ParamField path="isOpen" type="boolean">
+  Controlled open state
+</ParamField>
+
+<ParamField path="onOpenChange" type="(isOpen: boolean) => void">
+  Callback when open state changes
+</ParamField>
+
+<ParamField path="noPadding" type="boolean">
+  When true, removes padding from dropdown content
+</ParamField>
+
+```tsx
+import Dropdown from "./components/Dropdown";
+
+function FilterMenu() {
+  return (
+    <Dropdown
+      dropdownMenu={
+        <div>
+          <button>Option 1</button>
+          <button>Option 2</button>
+        </div>
+      }
+    >
+      <button>Open Menu</button>
+    </Dropdown>
+  );
+}
+```
+
+## PeerIcon
+
+Displays validator peer icons with fallback handling for missing images.
+
+<ParamField path="url" type="string | null">
+  URL of the peer's icon image
+</ParamField>
+
+<ParamField path="isYou" type="boolean">
+  When true, shows special styling for the current user's validator
+</ParamField>
+
+<ParamField path="size" type="number" required>
+  Icon size in pixels
+</ParamField>
+
+<ParamField path="hideFallback" type="boolean">
+  When true, renders empty div instead of fallback icon
+</ParamField>
+
+<ParamField path="hideTooltip" type="boolean" default="false">
+  When true, disables tooltip on hover
+</ParamField>
+
+```tsx
+import PeerIcon from "./components/PeerIcon";
+
+function ValidatorDisplay({ peer }: { peer: Peer }) {
+  return (
+    <PeerIcon
+      url={peer?.info?.icon_url}
+      isYou={peer?.pubkey === myPubkey}
+      size={32}
+    />
+  );
+}
+```
+
+## ScheduleStrategyIcon
+
+Displays icons representing different scheduling strategies (balanced, performance, revenue).
+
+<ParamField path="strategy" type="ScheduleStrategy" required>
+  The schedule strategy type: "balanced", "perf", or "revenue"
+</ParamField>
+
+<ParamField path="iconSize" type="number" required>
+  Icon size in pixels
+</ParamField>
+
+<ParamField path="tooltipContent" type="string">
+  Optional tooltip text to display on hover
+</ParamField>
+
+```tsx
+import { ScheduleStrategyIcon } from "./components/ScheduleStrategyIcon";
+
+function StrategyDisplay({ strategy }: { strategy: ScheduleStrategy }) {
+  return (
+    <ScheduleStrategyIcon
+      strategy={strategy}
+      iconSize={24}
+      tooltipContent="Current scheduling strategy"
+    />
+  );
+}
+```
+
+## FlashText
+
+A text component that flashes/animates when its value changes.
+
+<ParamField path="value" type="string | number" required>
+  The value to display. Changes trigger the flash animation
+</ParamField>
+
+<ParamField path="...props" type="TextProps">
+  All Radix UI Text component props are supported
+</ParamField>
+
+```tsx
+import FlashText from "./components/FlashText";
+
+function LiveCounter({ count }: { count: number }) {
+  return <FlashText value={count} size="5" weight="bold" />;
+}
+```
+
+## MonoText
+
+A text component that displays content in monospace font.
+
+<ParamField path="children" type="ReactNode" required>
+  The text content to display
+</ParamField>
+
+<ParamField path="...props" type="TextProps">
+  All Radix UI Text component props are supported
+</ParamField>
+
+```tsx
+import MonoText from "./components/MonoText";
+
+function CodeDisplay({ code }: { code: string }) {
+  return <MonoText>{code}</MonoText>;
+}
+```
+
+## ConditionalTooltip
+
+A tooltip wrapper that only renders the tooltip if content is provided.
+
+<ParamField path="content" type="ReactNode">
+  Tooltip content. If not provided, renders children without tooltip wrapper
+</ParamField>
+
+<ParamField path="...props" type="TooltipProps">
+  All Radix UI Tooltip props are supported
+</ParamField>
+
+```tsx
+import ConditionalTooltip from "./components/ConditionalTooltip";
+
+function DataDisplay({ value, tooltip }: { value: string; tooltip?: string }) {
+  return (
+    <ConditionalTooltip content={tooltip}>
+      <span>{value}</span>
+    </ConditionalTooltip>
+  );
+}
+```
+
+## ToggleControl
+
+A labeled toggle switch component.
+
+<ParamField path="checked" type="boolean" required>
+  Current checked state
+</ParamField>
+
+<ParamField path="onCheckedChange" type="(checked: boolean) => void" required>
+  Callback when toggle state changes
+</ParamField>
+
+<ParamField path="label" type="string" required>
+  Label text for the toggle
+</ParamField>
+
+<ParamField path="color" type="string">
+  CSS color for the label text
+</ParamField>
+
+```tsx
+import ToggleControl from "./components/ToggleControl";
+
+function SettingsPanel() {
+  const [enabled, setEnabled] = useState(false);
+
+  return (
+    <ToggleControl
+      checked={enabled}
+      onCheckedChange={setEnabled}
+      label="Enable Auto-refresh"
+      color="#888"
+    />
+  );
+}
+```

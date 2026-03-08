@@ -1,0 +1,628 @@
+---
+title: 'State Atoms'
+description: 'Jotai atom definitions for global state management'
+---
+
+# State Atoms
+
+The Firedancer Frontend uses [Jotai](https://jotai.org/) for state management. This page documents the core atoms that store and derive application state from WebSocket data.
+
+## Client Configuration
+
+### clientAtom
+
+Identifies which validator client is running (Firedancer or Frankendancer).
+
+```typescript
+export const clientAtom = atom(() => {
+  const parsedClient = clientSchema.safeParse(
+    (import.meta.env.VITE_VALIDATOR_CLIENT as string)?.trim(),
+  );
+
+  if (parsedClient.error) {
+    return ClientEnum.Frankendancer; // default
+  }
+
+  return parsedClient.data;
+});
+```
+
+**Type:** `"Frankendancer" | "Firedancer"`
+
+**Usage:**
+```typescript
+const client = useAtomValue(clientAtom);
+if (client === ClientEnum.Firedancer) {
+  // Firedancer-specific logic
+}
+```
+
+## Validator Metadata Atoms
+
+These atoms store basic validator information received via WebSocket.
+
+### versionAtom
+
+Validator software version.
+
+```typescript
+export const versionAtom = atom<Version | undefined>(undefined);
+```
+
+**Type:** `string | undefined`
+
+### clusterAtom
+
+Solana cluster the validator is connected to.
+
+```typescript
+export const clusterAtom = atom<Cluster | undefined>(undefined);
+```
+
+**Type:** `"mainnet-beta" | "devnet" | "testnet" | "development" | undefined`
+
+### identityKeyAtom
+
+Validator identity public key.
+
+```typescript
+export const identityKeyAtom = atom<IdentityKey | undefined>(undefined);
+```
+
+**Type:** `string | undefined`
+
+### commitHashAtom
+
+Git commit hash of the validator build.
+
+```typescript
+export const commitHashAtom = atom<CommitHash | undefined>(undefined);
+```
+
+**Type:** `string | undefined`
+
+## Slot-Related Atoms
+
+### currentSlotAtom
+
+The current slot being processed by the validator.
+
+```typescript
+export const currentSlotAtom = atom(
+  (get) => get(_currentSlotAtom),
+  (get, set, slot: number) => {
+    const nextLeaderSlot = get(nextLeaderSlotAtom);
+    if (nextLeaderSlot === undefined || slot >= nextLeaderSlot) {
+      set(nextLeaderSlotAtom, slot);
+    }
+    set(_currentSlotAtom, (prev) => Math.max(slot, prev ?? 0));
+  },
+);
+```
+
+**Type:** `number | undefined`
+
+**Usage:**
+```typescript
+const currentSlot = useAtomValue(currentSlotAtom);
+const setCurrentSlot = useSetAtom(currentSlotAtom);
+```
+
+### slotOverrideAtom
+
+Manual slot selection for viewing historical data.
+
+```typescript
+export const [slotOverrideAtom, autoScrollAtom] = (() => {
+  const _slotOverrideAtom = atom<number>();
+  
+  return [
+    atom(
+      (get) => get(_slotOverrideAtom),
+      (get, set, slot: number | undefined) => {
+        const epoch = get(epochAtom);
+        if (!epoch) return;
+        
+        const clampedSlot = slot === undefined
+          ? undefined
+          : clamp(getSlotGroupLeader(slot), epoch.start_slot, epoch.end_slot);
+        
+        set(_slotOverrideAtom, clampedSlot);
+      },
+    ),
+    atom((get) => get(_slotOverrideAtom) === undefined),
+  ];
+})();
+```
+
+**Type:** `number | undefined`
+
+**Related:** `autoScrollAtom` returns `true` when no override is set
+
+### leaderSlotsAtom
+
+Ordered array of slots where the current validator is the leader.
+
+```typescript
+export const leaderSlotsAtom = atom((get) => {
+  const epoch = get(epochAtom);
+  const pubkey = get(identityKeyAtom);
+
+  if (!epoch || !pubkey) return;
+
+  return getLeaderSlots(epoch, pubkey);
+});
+```
+
+**Type:** `number[] | undefined`
+
+### nextLeaderSlotAtom
+
+Next slot where the current validator will be leader.
+
+```typescript
+export const nextLeaderSlotAtom = atom(
+  (get) => {
+    const leaderSlots = get(leaderSlotsAtom);
+    const nextLeaderIndex = get(nextLeaderSlotIndexAtom);
+    if (!leaderSlots || nextLeaderIndex === undefined) return;
+    
+    return leaderSlots[nextLeaderIndex];
+  },
+  (get, set, currentSlot: number) => {
+    const leaderSlots = get(leaderSlotsAtom);
+    if (leaderSlots == null) return;
+    
+    set(nextLeaderSlotIndexAtom, (prevIndex) => {
+      let i = prevIndex ?? 0;
+      if ((leaderSlots[i - 1] ?? 0) > currentSlot) i = 0;
+      while (i < leaderSlots.length && leaderSlots[i] <= currentSlot) {
+        i++;
+      }
+      if (i >= leaderSlots.length) return undefined;
+      return i;
+    });
+  },
+);
+```
+
+**Type:** `number | undefined`
+
+### isCurrentlyLeaderAtom
+
+Whether the validator is currently leading.
+
+```typescript
+export const isCurrentlyLeaderAtom = atom((get) => {
+  const slot = get(currentSlotAtom);
+  const prevLeaderSlot = get(prevLeaderSlotAtom);
+
+  if (slot === undefined || prevLeaderSlot === undefined) return false;
+  if (slot >= prevLeaderSlot && slot <= prevLeaderSlot + slotsPerLeader) {
+    return true;
+  }
+  return false;
+});
+```
+
+**Type:** `boolean`
+
+### Slot Status Management
+
+#### getSlotStatus
+
+Memoized atom family for slot confirmation status.
+
+```typescript
+export const getSlotStatus = memoize(
+  (slot?: number) => 
+    atom((get) => 
+      slot !== undefined 
+        ? get(slotStatusAtom)[slot] || "incomplete"
+        : "incomplete"
+    ),
+  { maxSize: 1_000 }
+);
+```
+
+**Type:** `"incomplete" | "completed" | "optimistically_confirmed" | "rooted" | "finalized"`
+
+**Usage:**
+```typescript
+const slotStatus = useAtomValue(getSlotStatus(262080042));
+```
+
+#### slotPublishAtomFamily
+
+Atom family for accessing slot publish data.
+
+```typescript
+export const slotPublishAtomFamily = atomFamily((slot?: number) =>
+  atom((get) =>
+    slot !== undefined ? get(slotResponseAtom)[slot]?.publish : undefined
+  )
+);
+```
+
+**Usage:**
+```typescript
+const slotPublish = useAtomValue(slotPublishAtomFamily(262080042));
+```
+
+## Epoch Atoms
+
+### epochAtom
+
+Current epoch information including leader schedule.
+
+```typescript
+export const epochAtom = atom(
+  (get) => {
+    const currentSlot = get(currentSlotAtom);
+    const epochs = get(_epochsAtom);
+    if (!epochs.length || currentSlot === undefined) return;
+
+    const epoch = epochs.find(
+      ({ start_slot, end_slot }) =>
+        currentSlot >= start_slot && currentSlot <= end_slot
+    );
+    if (!epoch) return;
+
+    return epoch;
+  },
+  (_get, set, epoch: Epoch) => {
+    set(_epochsAtom, (draft) => {
+      const isDuplicate = draft.findIndex((e) => e.epoch === epoch.epoch) !== -1;
+      if (isDuplicate) return;
+      draft.push(epoch);
+    });
+  }
+);
+```
+
+**Type:** `Epoch | undefined`
+
+**Epoch Structure:**
+```typescript
+interface Epoch {
+  epoch: number;
+  start_slot: number;
+  end_slot: number;
+  staked_pubkeys: string[];
+  staked_lamports: bigint[];
+  leader_slots: number[];
+  // ...
+}
+```
+
+### nextEpochAtom
+
+Next epoch information (if available).
+
+```typescript
+export const nextEpochAtom = atom((get) => {
+  const currentEpoch = get(epochAtom);
+  if (!currentEpoch) return;
+
+  const nextEpoch = get(_epochsAtom).find(
+    (epoch) => epoch.epoch === currentEpoch?.epoch + 1
+  );
+
+  return nextEpoch;
+});
+```
+
+## Peer Atoms
+
+### peersAtom
+
+Record of all known peer validators.
+
+```typescript
+export const peersAtom = atomWithImmer<Record<string, Peer>>({});
+```
+
+**Type:** `Record<string, Peer>`
+
+### peersListAtom
+
+Array of all peers.
+
+```typescript
+export const peersListAtom = atom((get) => Object.values(get(peersAtom)));
+```
+
+**Type:** `Peer[]`
+
+### peersCountAtom
+
+Total number of known peers.
+
+```typescript
+export const peersCountAtom = atom((get) => get(peersListAtom).length);
+```
+
+**Type:** `number`
+
+### peersAtomFamily
+
+Atom family for accessing individual peers.
+
+```typescript
+export const peersAtomFamily = atomFamily((peer?: string) =>
+  atom((get) => (peer !== undefined ? get(peersAtom)[peer] : undefined))
+);
+```
+
+**Usage:**
+```typescript
+const peer = useAtomValue(peersAtomFamily("EvnRmnMrd69kRdbLMxWkTn1icZ7DCceRhvmb2SJXqDo4"));
+```
+
+### peerStatsAtom
+
+Aggregated peer statistics.
+
+```typescript
+export const peerStatsAtom = atom((get) => {
+  const peers = get(peersAtom);
+  if (!peers) return;
+
+  const activePeers = Object.values(peers).filter((p) => !p.removed);
+  const rpc = activePeers.filter(
+    (p) => p.vote.every((v) => !v.activated_stake) && !!p.gossip
+  );
+  const validators = activePeers.filter((p) =>
+    p.vote.some((v) => v.activated_stake)
+  );
+  const activeStake = /* ... */;
+  const delinquentStake = /* ... */;
+
+  return {
+    rpcCount: rpc.length,
+    validatorCount: validators.length,
+    activeStake,
+    delinquentStake,
+  };
+});
+```
+
+**Type:**
+```typescript
+{
+  rpcCount: number;
+  validatorCount: number;
+  activeStake: bigint;
+  delinquentStake: bigint;
+}
+```
+
+## Network Metrics Atoms
+
+### estimatedTpsAtom
+
+Current estimated transactions per second.
+
+```typescript
+export const estimatedTpsAtom = atom<EstimatedTps | undefined>(undefined);
+```
+
+**Type:**
+```typescript
+{
+  total: number;
+  vote: number;
+  nonvote_success: number;
+  nonvote_failed: number;
+}
+```
+
+### liveNetworkMetricsAtom
+
+Real-time network throughput metrics.
+
+```typescript
+export const liveNetworkMetricsAtom = atom<LiveNetworkMetrics | undefined>(undefined);
+```
+
+**Type:**
+```typescript
+{
+  ingress: number[];
+  egress: number[];
+}
+```
+
+### liveTxnWaterfallAtom
+
+Real-time transaction processing waterfall.
+
+```typescript
+export const liveTxnWaterfallAtom = rafAtom<LiveTxnWaterfall | undefined>(undefined);
+```
+
+**Type:**
+```typescript
+{
+  next_leader_slot: number | null;
+  waterfall: {
+    in: TxnWaterfallIn;
+    out: TxnWaterfallOut;
+  };
+}
+```
+
+### liveTilePrimaryMetricAtom
+
+Primary performance metrics for each tile.
+
+```typescript
+export const liveTilePrimaryMetricAtom = atom<LiveTilePrimaryMetric | undefined>(undefined);
+```
+
+## Startup Progress Atoms
+
+### startupProgressAtom
+
+Frankendancer startup progress (Agave-based).
+
+```typescript
+export const startupProgressAtom = atom<StartupProgress | undefined>(undefined);
+```
+
+**Type:**
+```typescript
+{
+  phase: "initializing" | "loading_ledger" | "processing_ledger" | "running" | ...;
+  ledger_slot?: number | null;
+  ledger_max_slot?: number | null;
+  // ... phase-specific fields
+}
+```
+
+### bootProgressAtom
+
+Firedancer boot progress.
+
+```typescript
+export const bootProgressAtom = atom<BootProgress | undefined>(undefined);
+```
+
+**Type:**
+```typescript
+{
+  phase: "joining_gossip" | "loading_full_snapshot" | "catching_up" | "running";
+  joining_gossip_elapsed_seconds?: number | null;
+  loading_full_snapshot_slot?: number | null;
+  catching_up_first_replay_slot?: number | null;
+  // ... phase-specific fields
+}
+```
+
+## Status Atoms
+
+### statusAtom
+
+Current UI status based on slot navigation.
+
+```typescript
+export type Status = "Live" | "Past" | "Current" | "Future";
+
+export const statusAtom = atom<Status | null>((get) => {
+  const currentSlot = get(currentSlotAtom);
+  if (currentSlot === undefined) return null;
+
+  const slotOverride = get(slotOverrideAtom);
+  if (slotOverride === undefined) return "Live";
+
+  if (getSlotGroupLeader(slotOverride) === getSlotGroupLeader(currentSlot))
+    return "Current";
+
+  if (slotOverride > currentSlot) return "Future";
+
+  return "Past";
+});
+```
+
+**Type:** `"Live" | "Past" | "Current" | "Future" | null`
+
+## Write-Only Atoms (Actions)
+
+These atoms are used to update state and trigger side effects.
+
+### setSlotResponseAtom
+
+Store complete slot response data.
+
+```typescript
+export const setSlotResponseAtom = atom(
+  null,
+  (_, set, response: SlotResponse) => {
+    const slot = response.publish.slot;
+    set(slotResponseAtom, (draft) => {
+      response.transactions ??= draft[slot]?.transactions;
+      response.tile_primary_metric ??= draft[slot]?.tile_primary_metric;
+      // ... merge logic
+      draft[slot] = response;
+    });
+  }
+);
+```
+
+### updatePeersAtom
+
+Add or update peer information.
+
+```typescript
+export const updatePeersAtom = atom(null, (_, set, peers?: Peer[]) => {
+  if (!peers?.length) return;
+
+  set(peersAtom, (draft) => {
+    for (const peer of peers) {
+      if (draft[peer.identity_pubkey]) {
+        draft[peer.identity_pubkey] = merge(draft[peer.identity_pubkey], peer);
+      } else {
+        draft[peer.identity_pubkey] = peer;
+      }
+    }
+  });
+});
+```
+
+### removePeersAtom
+
+Mark peers as removed (with delayed cleanup).
+
+```typescript
+const removePeerDelay = 60_000 * 5; // 5 minutes
+
+export const removePeersAtom = atom(null, (_, set, peers?: PeerRemove[]) => {
+  if (!peers?.length) return;
+
+  set(peersAtom, (draft) => {
+    for (const peer of peers) {
+      if (draft[peer.identity_pubkey]) {
+        draft[peer.identity_pubkey].removed = true;
+        peersAtomFamily.remove(peer.identity_pubkey);
+      }
+    }
+  });
+
+  setTimeout(() => {
+    set(peersAtom, (draft) => {
+      for (const peer of peers) {
+        if (draft[peer.identity_pubkey]) {
+          delete draft[peer.identity_pubkey];
+        }
+      }
+    });
+  }, removePeerDelay);
+});
+```
+
+## Usage Example
+
+Here's how atoms are typically used in components:
+
+```typescript
+import { useAtomValue, useSetAtom } from 'jotai';
+import { 
+  currentSlotAtom, 
+  isCurrentlyLeaderAtom,
+  estimatedTpsAtom 
+} from '@/atoms';
+
+function ValidatorStatus() {
+  const currentSlot = useAtomValue(currentSlotAtom);
+  const isLeader = useAtomValue(isCurrentlyLeaderAtom);
+  const tps = useAtomValue(estimatedTpsAtom);
+
+  return (
+    <div>
+      <div>Slot: {currentSlot}</div>
+      <div>Status: {isLeader ? 'Leading' : 'Following'}</div>
+      <div>TPS: {tps?.total.toLocaleString()}</div>
+    </div>
+  );
+}
+```

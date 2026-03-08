@@ -1,0 +1,239 @@
+---
+title: Installation
+description: Set up your development environment for Firedancer Frontend
+---
+
+## Prerequisites
+
+Before installing Firedancer Frontend, ensure your system meets the following requirements:
+
+<CardGroup cols={2}>
+  <Card title="Node.js" icon="node-js">
+    Version 20 or higher (22.12.0+ recommended)
+  </Card>
+  <Card title="npm" icon="box">
+    Version 10.8.2 or higher
+  </Card>
+</CardGroup>
+
+<Warning>
+The application requires Node.js 20+ due to modern JavaScript features and ESM module support. Using an older version will result in build errors.
+</Warning>
+
+## Step-by-Step Installation
+
+<Steps>
+  <Step title="Install Node Version Manager (nvm)">
+    If you don't already have nvm installed, run:
+
+    ```bash
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+    ```
+
+    Restart your terminal or source your shell profile:
+
+    ```bash
+    source ~/.bashrc  # or ~/.zshrc for zsh users
+    ```
+  </Step>
+
+  <Step title="Install and Use Node.js">
+    Navigate to the project directory and install the recommended Node version:
+
+    ```bash
+    nvm install && nvm use
+    ```
+
+    This will install Node.js version >= 22.12.0 as specified in the project's `.nvmrc` file.
+
+    <Accordion title="Verify Node.js installation">
+      ```bash
+      node --version
+      # Should output v22.12.0 or higher
+
+      npm --version
+      # Should output 10.8.2 or higher
+      ```
+    </Accordion>
+  </Step>
+
+  <Step title="Upgrade npm (if needed)">
+    Ensure you have the correct npm version:
+
+    ```bash
+    sudo npm install -g npm@10.8.2
+    ```
+  </Step>
+
+  <Step title="Clone the Repository">
+    Clone the Firedancer Frontend repository to your local machine:
+
+    ```bash
+    git clone <repository-url>
+    cd firedancer-frontend
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    Install all required npm packages:
+
+    ```bash
+    npm install
+    ```
+
+    This will install all dependencies listed in `package.json`, including:
+    - React and React DOM
+    - TanStack Router for navigation
+    - Jotai for state management
+    - AG Grid for data tables
+    - Radix UI components
+    - And many more...
+
+    <Note>
+    The installation may take a few minutes depending on your internet connection.
+    </Note>
+  </Step>
+</Steps>
+
+## Environment Configuration
+
+Configure your environment variables to connect to your validator.
+
+<Steps>
+  <Step title="Create Development Environment File">
+    Copy the example environment file:
+
+    ```bash
+    cp .env.example .env.development
+    ```
+  </Step>
+
+  <Step title="Configure WebSocket URL">
+    Edit `.env.development` and set your validator's WebSocket endpoint:
+
+    ```bash .env.development
+    VITE_WEBSOCKET_URL=ws://localhost:7999/websocket
+    VITE_VALIDATOR_CLIENT=Firedancer
+    ```
+
+    <ParamField path="VITE_WEBSOCKET_URL" type="string">
+      WebSocket URL of your validator. Leave empty to auto-detect based on the current host.
+      
+      Examples:
+      - `ws://localhost:7999/websocket` - Local development
+      - `ws://192.168.1.100:7999/websocket` - Remote validator on LAN
+      - Leave blank for production (auto-detects from window.location)
+    </ParamField>
+
+    <ParamField path="VITE_VALIDATOR_CLIENT" type="enum">
+      Validator client type. Must be either `Firedancer` or `Frankendancer`.
+      
+      This controls:
+      - Dashboard branding and logo
+      - Client-specific tile types
+      - Feature availability
+    </ParamField>
+  </Step>
+
+  <Step title="Optional: Production Environment">
+    For production builds, create a production environment file:
+
+    ```bash
+    cp .env.example .env.production
+    ```
+
+    Production deployments typically leave `VITE_WEBSOCKET_URL` empty so the dashboard auto-connects to the same host serving the UI.
+
+    ```bash .env.production
+    VITE_WEBSOCKET_URL=
+    VITE_VALIDATOR_CLIENT=Firedancer
+    ```
+  </Step>
+</Steps>
+
+## Verify Installation
+
+Confirm your installation is successful:
+
+```bash
+npm run dev
+```
+
+You should see output similar to:
+
+```
+VITE v5.4.8  ready in 523 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://0.0.0.0:5173/
+  ➜  press h to show help
+```
+
+<Check>
+If you see the Vite dev server running without errors, your installation is complete!
+</Check>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Node version errors">
+    If you see errors about unsupported Node.js features:
+
+    1. Check your Node version: `node --version`
+    2. Ensure it's >= 20.0.0
+    3. Run `nvm use` in the project directory
+    4. If problems persist, try `nvm install 22.12.0 && nvm use 22.12.0`
+  </Accordion>
+
+  <Accordion title="npm install fails">
+    If `npm install` fails:
+
+    1. Delete `node_modules` and `package-lock.json`:
+       ```bash
+       rm -rf node_modules package-lock.json
+       ```
+    2. Clear npm cache:
+       ```bash
+       npm cache clean --force
+       ```
+    3. Reinstall:
+       ```bash
+       npm install
+       ```
+  </Accordion>
+
+  <Accordion title="Port 5173 already in use">
+    If port 5173 is occupied:
+
+    1. Find the process using the port:
+       ```bash
+       lsof -ti:5173
+       ```
+    2. Kill it:
+       ```bash
+       kill -9 $(lsof -ti:5173)
+       ```
+    3. Or edit `vite.config.ts` to use a different port:
+       ```ts
+       server: {
+         port: 5301  // or any other available port
+       }
+       ```
+  </Accordion>
+
+  <Accordion title="WebSocket connection fails">
+    If the dashboard loads but shows connection errors:
+
+    1. Verify your validator is running and accessible
+    2. Check the WebSocket URL in `.env.development`
+    3. Ensure your validator's WebSocket server is enabled
+    4. Check firewall rules allow the connection
+    5. Open browser DevTools Console to see detailed WebSocket errors
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+  Learn how to run the dashboard and connect to your validator
+</Card>
